@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Couple Game</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;600;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="scoreboard-panel" class="scoreboard-panel">
+      <h3>📊 SKORLAR</h3>
+      <div id="scoreboard-list"></div>
+      <div id="score-note-text" class="score-note">20 Hata = ELENİR! 💀</div>
+    </div>
+
+    <div class="main-container">
+      <header>
+        <h1 class="game-title">
+          Couple Game <span id="interactive-heart">💖</span>
+        </h1>
+      </header>
+
+      <div id="lobby-screen" class="screen active">
+        <div class="card lobby-card">
+          <h2>Giriş Yap</h2>
+
+          <input
+            type="text"
+            id="username"
+            placeholder="İsminiz"
+            maxlength="12"
+          />
+          <div class="gender-selection">
+            <label class="gender-option male"
+              ><input type="radio" name="gender" value="male" checked /><span
+                >Erkek 💙</span
+              ></label
+            >
+            <label class="gender-option female"
+              ><input type="radio" name="gender" value="female" /><span
+                >Kadın 🩷</span
+              ></label
+            >
+          </div>
+
+          <div class="tab-container">
+            <button class="tab-btn active" onclick="switchTab('create')">
+              Oda Oluştur
+            </button>
+            <button class="tab-btn" onclick="switchTab('join')">
+              Odaya Katıl
+            </button>
+          </div>
+
+          <div class="forms-window">
+            <div id="forms-slider" class="forms-slider">
+              <div class="slide-section">
+                <label>Çift Sayısı:</label>
+                <select id="coupleCountSelect">
+                  <option value="2" selected>2 Çift (4 Kişi)</option>
+                  <option value="3">3 Çift (6 Kişi)</option>
+                  <option value="4">4 Çift (8 Kişi)</option>
+                </select>
+
+                <div class="row-inputs">
+                  <div class="half-input">
+                    <label>Tur</label>
+                    <input
+                      type="number"
+                      id="roundCountInput"
+                      min="1"
+                      max="20"
+                      value="5"
+                    />
+                  </div>
+                  <div class="half-input">
+                    <label>Süre (sn)</label>
+                    <input
+                      type="number"
+                      id="roundTimeInput"
+                      min="5"
+                      max="120"
+                      value="10"
+                    />
+                  </div>
+                </div>
+
+                <button class="btn-primary" onclick="createRoom()">
+                  Oda Oluştur
+                </button>
+              </div>
+
+              <div class="slide-section">
+                <div class="join-content">
+                  <label>Oda Kodunu Giriniz:</label>
+                  <input
+                    type="text"
+                    id="roomCodeInput"
+                    placeholder="KOD"
+                    maxlength="5"
+                    class="big-input"
+                  />
+                  <button class="btn-secondary" onclick="joinRoom()">
+                    Katıl
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="waiting-screen" class="screen">
+        <div class="waiting-header">
+          <h2>
+            Oda Kodu: <span id="displayRoomCode" class="highlight-code"></span>
+            <span class="copy-btn" onclick="copyRoomCode()" title="Kopyala">📋</span>
+          </h2>
+          <div id="host-controls" class="hidden">
+            <button class="btn-start" onclick="startGame()">
+              OYUNU BAŞLAT 🚀
+            </button>
+          </div>
+          <div id="member-message" class="hidden">
+            <p>Kurucunun oyunu başlatması bekleniyor...</p>
+          </div>
+        </div>
+        <div id="teams-container" class="teams-grid"></div>
+        <div class="spectators-area">
+          <h3>👥 Lobidekiler (Takım Seçin)</h3>
+          <div id="spectator-list" class="spectator-list"></div>
+        </div>
+      </div>
+
+      <!-- OYUN SEÇİM EKRANI -->
+      <div id="game-select-screen" class="screen">
+        <div class="game-select-container">
+          <h2 class="select-title">Oyun Seç</h2>
+          <div class="game-cards">
+            <div class="game-card" onclick="selectGame('telepati')">
+              <div class="game-card-icon">🧠</div>
+              <h3>Telepati</h3>
+              <p>Aynı kelimeyi yazmaya çalışın!</p>
+            </div>
+            <div class="game-card" onclick="selectGame('isimSehir')">
+              <div class="game-card-icon">🔤</div>
+              <h3>İsim Şehir</h3>
+              <p>Harf gelir, kategori gelir, eşleşin!</p>
+            </div>
+            <div class="game-card" onclick="selectGame('pictionary')">
+              <div class="game-card-icon">🎨</div>
+              <h3>Resim Çiz</h3>
+              <p>Çiz, tahmin et, puan topla!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- İSİM ŞEHİR EKRANI -->
+      <div id="isimSehir-screen" class="screen">
+        <div id="isimSehir-turn-info" class="turn-info">Sıradaki Çift...</div>
+
+        <div id="letter-display" class="letter-display">
+          <div class="letter-wheel-container">
+            <span id="spinning-letter" class="spinning-letter">A</span>
+          </div>
+        </div>
+
+        <div class="category-tabs">
+          <span id="cat-isim" class="cat-tab">İSİM</span>
+          <span id="cat-sehir" class="cat-tab">ŞEHİR</span>
+          <span id="cat-hayvan" class="cat-tab">HAYVAN</span>
+        </div>
+
+        <div class="game-split-container">
+          <div id="is-left-panel" class="game-panel">
+            <div class="panel-header"><h3 id="isLeftName">Oyuncu 1</h3></div>
+            <div class="panel-content">
+              <div id="is-input-area" class="input-wrapper">
+                <input type="text" id="isWordInput" placeholder="Cevap..." autocomplete="off" />
+                <button id="isSendBtn" onclick="sendIsimSehirWord()">GÖNDER</button>
+              </div>
+              <div id="is-spectator-left" class="spectator-text hidden">🤔</div>
+              <div id="is-left-status" class="status-text">...</div>
+            </div>
+          </div>
+          <div id="is-right-panel" class="game-panel">
+            <div class="panel-header"><h3 id="isRightName">Oyuncu 2</h3></div>
+            <div class="panel-content center-content">
+              <div id="is-right-status" class="partner-waiting-animation">Bekleniyor...</div>
+              <div id="is-spectator-right" class="spectator-text hidden">🤔</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="is-timer" class="timer-countdown"></div>
+
+        <div class="game-footer">
+          <div id="is-round-display" style="font-size:1.2rem;margin-bottom:5px"></div>
+          <div id="is-game-log" class="log-container"></div>
+        </div>
+      </div>
+
+      <!-- RESİM ÇİZ (PICTIONARY) EKRANI -->
+      <div id="pictionary-screen" class="screen">
+        <div id="pic-turn-info" class="turn-info">Resim Çiz Başlıyor...</div>
+
+        <div id="pic-word-display" class="pic-word-display hidden"></div>
+
+        <div class="pic-canvas-container">
+          <canvas id="pic-canvas" width="400" height="350"></canvas>
+        </div>
+
+        <div id="pic-toolbar" class="pic-toolbar hidden">
+          <div class="pic-colors">
+            <span class="pic-color active" data-color="#000000" style="background:#000000"></span>
+            <span class="pic-color" data-color="#e74c3c" style="background:#e74c3c"></span>
+            <span class="pic-color" data-color="#3498db" style="background:#3498db"></span>
+            <span class="pic-color" data-color="#27ae60" style="background:#27ae60"></span>
+            <span class="pic-color" data-color="#f39c12" style="background:#f39c12"></span>
+            <span class="pic-color" data-color="#8e44ad" style="background:#8e44ad"></span>
+            <span class="pic-color" data-color="#e91e63" style="background:#e91e63"></span>
+            <span class="pic-color" data-color="#ffffff" style="background:#ffffff; border:1px solid #999"></span>
+          </div>
+          <div class="pic-tools">
+            <label class="pic-thickness-label">
+              <input type="range" id="pic-thickness" min="2" max="20" value="4">
+            </label>
+            <button class="pic-tool-btn" id="pic-eraser-btn" onclick="toggleEraser()">Silgi</button>
+            <button class="pic-tool-btn" onclick="clearCanvas()">Temizle</button>
+          </div>
+        </div>
+
+        <div id="pic-guess-area" class="pic-guess-area hidden">
+          <input type="text" id="pic-guess-input" placeholder="Tahmin yaz..." autocomplete="off" />
+          <button id="pic-guess-btn" onclick="sendPictionaryGuess()">TAHMİN</button>
+        </div>
+
+        <div id="pic-timer" class="timer-countdown"></div>
+
+        <div class="game-footer">
+          <div id="pic-round-display" style="font-size:1.2rem;margin-bottom:5px"></div>
+          <div id="pic-game-log" class="log-container"></div>
+        </div>
+      </div>
+
+      <div id="game-screen" class="screen">
+        <div id="turn-info-bar" class="turn-info">
+          Sıradaki Çift Yarışıyor...
+        </div>
+
+        <div class="game-split-container">
+          <div id="left-panel" class="game-panel">
+            <div class="panel-header"><h3 id="leftName">Oyuncu 1</h3></div>
+            <div class="panel-content">
+              <div id="input-area-left" class="input-wrapper">
+                <input
+                  type="text"
+                  id="wordInput"
+                  placeholder="Kelime..."
+                  autocomplete="off"
+                />
+                <button id="sendWordBtn" onclick="sendWord()">GÖNDER</button>
+              </div>
+              <div id="spectator-view-left" class="spectator-text hidden">
+                🤔
+              </div>
+              <div id="left-status" class="status-text">...</div>
+            </div>
+          </div>
+          <div id="right-panel" class="game-panel">
+            <div class="panel-header"><h3 id="rightName">Oyuncu 2</h3></div>
+            <div class="panel-content center-content">
+              <div id="right-status" class="partner-waiting-animation">
+                Bekleniyor...
+              </div>
+              <div id="spectator-view-right" class="spectator-text hidden">
+                🤔
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="timer-countdown" class="timer-countdown"></div>
+
+        <div class="game-footer">
+          <div
+            id="attempts-display"
+            style="font-size: 1.2rem; margin-bottom: 5px"
+          ></div>
+          <div id="game-log" class="log-container"></div>
+        </div>
+      </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+  </body>
+</html>

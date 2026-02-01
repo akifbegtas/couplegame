@@ -1,0 +1,717 @@
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.static(path.join(__dirname, "public")));
+
+const rooms = {};
+const TURKISH_LETTERS = ["A","B","C","Ç","D","E","F","G","H","I","İ","J","K","L","M","N","O","Ö","P","R","S","Ş","T","U","Ü","V","Y","Z"];
+const CATEGORIES = ["İSİM", "ŞEHİR", "HAYVAN"];
+
+const PICTIONARY_WORDS = [
+  "ARABA", "EV", "AĞAÇ", "GÜNEŞ", "YILDIZ", "AY", "BULUT", "YAĞMUR", "KAR", "DENİZ",
+  "BALIK", "KEDİ", "KÖPEK", "KUŞ", "KELEBEK", "ÇİÇEK", "GÜL", "KALP", "YÜZÜK", "PASTA",
+  "DONDURMA", "PİZZA", "HAMBURGER", "ELMA", "MUZ", "ÇİLEK", "KARPUZ", "PORTAKAL", "ÜZÜM", "ARMUT",
+  "FUTBOL", "BASKETBOL", "BİSİKLET", "UÇAK", "GEMİ", "TREN", "ROKET", "HELİKOPTER", "OTOBÜS", "MOTOSİKLET",
+  "TELEFON", "BİLGİSAYAR", "TELEVİZYON", "KAMERA", "SAAT", "GÖZLÜK", "ŞEMSIYE", "ÇANTA", "AYAKKABI", "ŞAPKA",
+  "KİTAP", "KALEM", "MASA", "SANDALYE", "YATAK", "LAMBA", "ANAHTAR", "MAKAS", "BARDAK", "TABAK",
+  "GÖKKUŞAĞI", "YANARDAĞ", "PALMIYE", "KÖPRÜ", "KALE", "PİRAMİT", "BAYRAK", "MERDIVEN", "ÇİT", "KUYU",
+  "ASLAN", "FİL", "ZÜRAFA", "PENGUEN", "YUNUS", "KAPLUMBAĞA", "YILAN", "TAVŞAN", "MAYMUN", "KARTAL"
+];
+
+io.on("connection", (socket) => {
+  // --- ODA OLUŞTURMA ---
+  socket.on("createRoom", (data) => {
+    const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    let count = parseInt(data.coupleCount);
+    if (!count || count < 2) count = 2;
+
+    let rounds = parseInt(data.roundCount);
+    if (!rounds || rounds < 1) rounds = 5;
+
+    let time = parseInt(data.roundTime);
+    if (!time || time < 5) time = 10;
+
+    const gameType = data.gameType || "telepati";
+
+    const teams = [];
+    for (let i = 0; i < count; i++) {
+      teams.push({ id: i, name: `Takım ${i + 1}`, p1: null, p2: null });
+    }
+
+    const hostPlayer = {
+      id: socket.id,
+      username: data.username,
+      gender: data.gender,
+      isHost: true,
+    };
+    teams[0].p1 = hostPlayer;
+
+    rooms[roomId] = {
+      id: roomId,
+      teams: teams,
+      spectators: [],
+      gameStatus: "waiting",
+      gameType: gameType,
+      currentPairIndex: 0,
+      roundCount: rounds,
+      roundTime: time,
+      currentRound: 1,
+      pairs: [],
+      moves: {},
+      // Pictionary specific
+      pictionaryScores: {},
+      pictionaryUsedWords: [],
+      pictionaryDrawerToggle: 0, // 0=p1 draws, 1=p2 draws
+      pictionaryGuessOrder: [],
+      pictionaryTimer: null,
+      // İsim Şehir specific
+      currentLetter: null,
+      currentCategory: null,
+      categoryIndex: 0,
+      isimSehirScores: {},
+      usedLetters: [],
+    };
+
+    console.log(
+      `Oda Kuruldu: ${roomId} | Oyun: ${gameType} | Tur: ${rounds} | Süre: ${time} | Takım: ${count}`,
+    );
+
+    socket.join(roomId);
+    socket.emit("roomCreated", roomId);
+    io.to(roomId).emit("updateLobby", {
+      teams: rooms[roomId].teams,
+      spectators: rooms[roomId].spectators,
+      hostId: socket.id,
+    });
+  });
+
+  // --- ODAYA KATILMA ---
+  socket.on("joinRoom", ({ roomId, username, gender }) => {
+    const room = rooms[roomId];
+    if (room && room.gameStatus === "waiting") {
+      const newPlayer = { id: socket.id, username, gender, isHost: false };
+      room.spectators.push(newPlayer);
+      socket.join(roomId);
+      socket.emit("joinedRoom", roomId);
+      io.to(roomId).emit("updateLobby", {
+        teams: room.teams,
+        spectators: room.spectators,
+        hostId: room.teams[0].p1 ? room.teams[0].p1.id : null,
+      });
+    } else {
+      socket.emit("error", "Oda bulunamadı!");
+    }
+  });
+
+  // --- TAKIM SEÇME ---
+  socket.on("selectTeam", ({ roomId, teamIndex, slot }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    const playerIndex = room.spectators.findIndex((p) => p.id === socket.id);
+    if (playerIndex !== -1) {
+      const player = room.spectators[playerIndex];
+      const targetTeam = room.teams[teamIndex];
+      if (slot === "p1" && targetTeam.p1 === null) {
+        targetTeam.p1 = player;
+        room.spectators.splice(playerIndex, 1);
+      } else if (slot === "p2" && targetTeam.p2 === null) {
+        targetTeam.p2 = player;
+        room.spectators.splice(playerIndex, 1);
+      }
+      io.to(roomId).emit("updateLobby", {
+        teams: room.teams,
+        spectators: room.spectators,
+        hostId: room.teams[0].p1 ? room.teams[0].p1.id : null,
+      });
+    }
+  });
+
+  // --- OYUN BAŞLATMA ---
+  socket.on("startGame", (roomId) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    const validPairs = [];
+    room.teams.forEach((t) => {
+      if (t.p1 && t.p2) {
+        validPairs.push({
+          id: `pair_${t.id}`,
+          teamName: t.name,
+          p1: t.p1,
+          p2: t.p2,
+          currentTurnAttempts: 0,
+          totalAttempts: 0,
+          isEliminated: false,
+        });
+      }
+    });
+
+    if (validPairs.length < 1) {
+      socket.emit("error", "Yeterli takım yok!");
+      return;
+    }
+
+    room.gameStatus = "playing";
+    room.pairs = validPairs;
+    room.currentPairIndex = 0;
+    room.currentRound = 1;
+
+    if (room.gameType === "pictionary") {
+      validPairs.forEach(p => {
+        room.pictionaryScores[p.id] = 0;
+      });
+
+      io.to(roomId).emit("pictionaryStart", {
+        roundCount: room.roundCount,
+      });
+
+      updatePictionaryLeaderboard(roomId);
+
+      setTimeout(() => {
+        startPictionaryRound(roomId);
+      }, 2000);
+    } else if (room.gameType === "isimSehir") {
+      // Initialize scores
+      validPairs.forEach(p => {
+        room.isimSehirScores[p.id] = 0;
+      });
+
+      io.to(roomId).emit("isimSehirStart", {
+        roundCount: room.roundCount,
+        roundTime: room.roundTime,
+      });
+
+      updateIsimSehirLeaderboard(roomId);
+
+      setTimeout(() => {
+        startIsimSehirRound(roomId);
+      }, 2000);
+    } else {
+      // Telepati
+      io.to(roomId).emit("gameInit", {
+        roundCount: room.roundCount,
+        roundTime: room.roundTime,
+      });
+
+      updateLeaderboard(roomId);
+
+      setTimeout(() => {
+        startTurn(roomId);
+      }, 2000);
+    }
+  });
+
+  // --- TELEPATİ: KELİME GÖNDERME ---
+  socket.on("submitWord", ({ roomId, word }) => {
+    const room = rooms[roomId];
+    if (!room || room.gameStatus !== "playing") return;
+
+    const currentPair = room.pairs[room.currentPairIndex];
+    if (!currentPair) return;
+
+    if (socket.id !== currentPair.p1.id && socket.id !== currentPair.p2.id)
+      return;
+    if (!room.moves[currentPair.id]) room.moves[currentPair.id] = {};
+
+    let cleanWord = word ? word.trim().toUpperCase() : "⏰";
+    if (cleanWord === "") cleanWord = "⏰";
+
+    room.moves[currentPair.id][socket.id] = cleanWord;
+
+    const partnerId =
+      socket.id === currentPair.p1.id ? currentPair.p2.id : currentPair.p1.id;
+    io.to(partnerId).emit("partnerSubmitted");
+
+    const who = socket.id === currentPair.p1.id ? "p1" : "p2";
+    io.to(roomId).emit("revealOneMove", { slot: who, word: cleanWord });
+
+    const w1 = room.moves[currentPair.id][currentPair.p1.id];
+    const w2 = room.moves[currentPair.id][currentPair.p2.id];
+
+    if (w1 !== undefined && w2 !== undefined) {
+      currentPair.currentTurnAttempts++;
+      const isMatch = w1 === w2 && w1 !== "⏰";
+
+      if (!isMatch) currentPair.totalAttempts++;
+
+      updateLeaderboard(roomId);
+
+      const result = {
+        pairId: currentPair.id,
+        p1Word: w1,
+        p2Word: w2,
+        attempts: currentPair.currentTurnAttempts,
+        match: isMatch,
+      };
+
+      if (currentPair.totalAttempts >= 20 && !currentPair.isEliminated) {
+        currentPair.isEliminated = true;
+        io.to(roomId).emit("spectatorUpdate", result);
+        io.to(roomId).emit("gameOver", `${currentPair.teamName} ELENDİ! 💀`);
+        setTimeout(() => nextTurn(roomId), 2000);
+        return;
+      }
+
+      setTimeout(() => {
+        io.to(roomId).emit("spectatorUpdate", result);
+        room.moves[currentPair.id] = {};
+
+        if (isMatch) {
+          io.to(currentPair.p1.id)
+            .to(currentPair.p2.id)
+            .emit("levelFinished", { success: true });
+          nextTurn(roomId);
+        }
+      }, 500);
+    }
+  });
+
+  // --- İSİM ŞEHİR: KELİME GÖNDERME ---
+  socket.on("submitIsimSehirWord", ({ roomId, word }) => {
+    const room = rooms[roomId];
+    if (!room || room.gameStatus !== "playing") return;
+
+    const currentPair = room.pairs[room.currentPairIndex];
+    if (!currentPair) return;
+
+    if (socket.id !== currentPair.p1.id && socket.id !== currentPair.p2.id)
+      return;
+
+    const moveKey = currentPair.id + "_" + room.currentCategory;
+    if (!room.moves[moveKey]) room.moves[moveKey] = {};
+
+    let cleanWord = word ? word.trim().toUpperCase() : "⏰";
+    if (cleanWord === "") cleanWord = "⏰";
+
+    room.moves[moveKey][socket.id] = cleanWord;
+
+    const partnerId =
+      socket.id === currentPair.p1.id ? currentPair.p2.id : currentPair.p1.id;
+    io.to(partnerId).emit("partnerSubmitted");
+
+    const who = socket.id === currentPair.p1.id ? "p1" : "p2";
+    io.to(roomId).emit("revealOneMove", { slot: who, word: cleanWord });
+
+    const w1 = room.moves[moveKey][currentPair.p1.id];
+    const w2 = room.moves[moveKey][currentPair.p2.id];
+
+    if (w1 !== undefined && w2 !== undefined) {
+      const isMatch = w1 === w2 && w1 !== "⏰";
+
+      if (isMatch) {
+        room.isimSehirScores[currentPair.id]++;
+      }
+
+      updateIsimSehirLeaderboard(roomId);
+
+      const result = {
+        pairId: currentPair.id,
+        p1Word: w1,
+        p2Word: w2,
+        match: isMatch,
+        category: room.currentCategory,
+      };
+
+      setTimeout(() => {
+        io.to(roomId).emit("isimSehirResult", result);
+
+        if (isMatch) {
+          io.to(currentPair.p1.id)
+            .to(currentPair.p2.id)
+            .emit("levelFinished", { success: true });
+        }
+
+        // Move to next: category or pair or round
+        setTimeout(() => {
+          nextIsimSehirStep(roomId);
+        }, 1500);
+      }, 500);
+    }
+  });
+
+  // --- PICTIONARY: DRAW DATA ---
+  socket.on("drawData", (data) => {
+    const room = rooms[data.roomId];
+    if (!room || room.gameType !== "pictionary") return;
+    // Relay to everyone else in room
+    socket.to(data.roomId).emit("drawData", data);
+  });
+
+  // --- PICTIONARY: GUESS ---
+  socket.on("pictionaryGuess", ({ roomId, guess }) => {
+    const room = rooms[roomId];
+    if (!room || room.gameStatus !== "playing" || room.gameType !== "pictionary") return;
+
+    const cleanGuess = guess.trim().toUpperCase();
+    const word = room._currentPictionaryWord;
+    if (!word) return;
+
+    // Find which pair this guesser belongs to
+    const pair = room.pairs.find(p => p.p1.id === socket.id || p.p2.id === socket.id);
+    if (!pair) return;
+
+    // Check this pair hasn't already guessed correctly
+    if (room.pictionaryGuessOrder.includes(pair.id)) return;
+
+    // Must be the guesser (not the drawer)
+    const drawerIsP1 = room.pictionaryDrawerToggle % 2 === 0;
+    const drawerId = drawerIsP1 ? pair.p1.id : pair.p2.id;
+    if (socket.id === drawerId) return;
+
+    if (cleanGuess === word) {
+      room.pictionaryGuessOrder.push(pair.id);
+      const order = room.pictionaryGuessOrder.length;
+      const pairCount = room.pairs.length;
+      const points = pairCount - order;
+
+      room.pictionaryScores[pair.id] = (room.pictionaryScores[pair.id] || 0) + points;
+      updatePictionaryLeaderboard(roomId);
+
+      io.to(roomId).emit("pictionaryCorrect", {
+        teamName: pair.teamName,
+        points: points,
+        order: order,
+        word: word,
+      });
+
+      // All pairs guessed?
+      if (room.pictionaryGuessOrder.length >= room.pairs.length) {
+        endPictionaryRound(roomId);
+      }
+    } else {
+      const guesserName = socket.id === pair.p1.id ? pair.p1.username : pair.p2.username;
+      io.to(roomId).emit("pictionaryWrongGuess", { guess: cleanGuess, guesserName });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    for (const roomId of Object.keys(rooms)) {
+      const room = rooms[roomId];
+
+      room.teams.forEach((t) => {
+        if (t.p1 && t.p1.id === socket.id) t.p1 = null;
+        if (t.p2 && t.p2.id === socket.id) t.p2 = null;
+      });
+
+      room.spectators = room.spectators.filter((p) => p.id !== socket.id);
+
+      io.to(roomId).emit("updateLobby", {
+        teams: room.teams,
+        spectators: room.spectators,
+        hostId: room.teams[0].p1 ? room.teams[0].p1.id : null,
+      });
+    }
+  });
+});
+
+// ============ TELEPATİ FONKSİYONLARI ============
+
+function nextTurn(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  room.currentPairIndex++;
+
+  if (room.currentPairIndex >= room.pairs.length) {
+    room.currentPairIndex = 0;
+    room.currentRound++;
+
+    if (room.currentRound > room.roundCount) {
+      io.to(roomId).emit("gameOver", "Turnuva Bitti! Tebrikler! 🏆");
+      room.gameStatus = "finished";
+      return;
+    }
+
+    io.to(roomId).emit("roundChanged", room.currentRound);
+  }
+
+  const nextP = room.pairs[room.currentPairIndex];
+  if (nextP.isEliminated) {
+    if (room.pairs.every((p) => p.isEliminated)) {
+      io.to(roomId).emit("gameOver", "Herkes Elendi! 💀");
+      return;
+    }
+    nextTurn(roomId);
+    return;
+  }
+
+  setTimeout(() => startTurn(roomId), 1500);
+}
+
+function startTurn(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  const p = room.pairs[room.currentPairIndex];
+
+  p.currentTurnAttempts = 0;
+  room.moves[p.id] = {};
+
+  io.to(roomId).emit("turnStarted", {
+    p1: p.p1,
+    p2: p.p2,
+    currentRound: room.currentRound,
+    totalRounds: room.roundCount,
+  });
+}
+
+function updateLeaderboard(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const sorted = [...room.pairs].sort(
+    (a, b) => a.totalAttempts - b.totalAttempts,
+  );
+
+  const scores = sorted.map((p, i) => ({
+    rank: i + 1,
+    name: p.teamName,
+    score: p.totalAttempts,
+    eliminated: p.isEliminated,
+  }));
+
+  io.to(roomId).emit("updateScoreboard", scores);
+}
+
+// ============ İSİM ŞEHİR FONKSİYONLARI ============
+
+function startIsimSehirRound(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  // Pick a random unused letter
+  const available = TURKISH_LETTERS.filter(l => !room.usedLetters.includes(l));
+  if (available.length === 0) {
+    room.usedLetters = [];
+    available.push(...TURKISH_LETTERS);
+  }
+  const letter = available[Math.floor(Math.random() * available.length)];
+  room.usedLetters.push(letter);
+  room.currentLetter = letter;
+  room.categoryIndex = 0;
+  room.currentPairIndex = 0;
+
+  io.to(roomId).emit("letterSelected", {
+    letter: letter,
+    currentRound: room.currentRound,
+    totalRounds: room.roundCount,
+  });
+
+  // Wait for animation then start first category for first pair
+  setTimeout(() => {
+    startCategory(roomId);
+  }, 3500);
+}
+
+function startCategory(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const category = CATEGORIES[room.categoryIndex];
+  room.currentCategory = category;
+  const pair = room.pairs[room.currentPairIndex];
+
+  const moveKey = pair.id + "_" + category;
+  room.moves[moveKey] = {};
+
+  io.to(roomId).emit("categoryStart", {
+    category: category,
+    letter: room.currentLetter,
+    p1: pair.p1,
+    p2: pair.p2,
+    currentRound: room.currentRound,
+    totalRounds: room.roundCount,
+  });
+}
+
+function nextIsimSehirStep(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  // Next category
+  room.categoryIndex++;
+
+  if (room.categoryIndex < CATEGORIES.length) {
+    // Same pair, next category
+    startCategory(roomId);
+    return;
+  }
+
+  // All categories done for this pair, next pair
+  room.categoryIndex = 0;
+  room.currentPairIndex++;
+
+  if (room.currentPairIndex < room.pairs.length) {
+    // New pair, start from first category
+    startCategory(roomId);
+    return;
+  }
+
+  // All pairs done, next round (new letter)
+  room.currentPairIndex = 0;
+  room.currentRound++;
+
+  if (room.currentRound > room.roundCount) {
+    // Game over
+    const sorted = [...room.pairs].sort(
+      (a, b) => room.isimSehirScores[b.id] - room.isimSehirScores[a.id],
+    );
+    const winner = sorted[0];
+    const winScore = room.isimSehirScores[winner.id];
+    io.to(roomId).emit("isimSehirGameOver",
+      `${winner.teamName} kazandı! (${winScore} puan) 🏆`);
+    room.gameStatus = "finished";
+    return;
+  }
+
+  io.to(roomId).emit("roundChanged", room.currentRound);
+  setTimeout(() => {
+    startIsimSehirRound(roomId);
+  }, 2000);
+}
+
+function updateIsimSehirLeaderboard(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const sorted = [...room.pairs].sort(
+    (a, b) => (room.isimSehirScores[b.id] || 0) - (room.isimSehirScores[a.id] || 0),
+  );
+
+  const scores = sorted.map((p, i) => ({
+    rank: i + 1,
+    name: p.teamName,
+    score: room.isimSehirScores[p.id] || 0,
+    eliminated: false,
+  }));
+
+  io.to(roomId).emit("updateScoreboard", scores);
+}
+
+// ============ PICTIONARY FONKSİYONLARI ============
+
+function startPictionaryRound(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  // Pick unused word
+  let available = PICTIONARY_WORDS.filter(w => !room.pictionaryUsedWords.includes(w));
+  if (available.length === 0) {
+    room.pictionaryUsedWords = [];
+    available = [...PICTIONARY_WORDS];
+  }
+  const word = available[Math.floor(Math.random() * available.length)];
+  room.pictionaryUsedWords.push(word);
+  room._currentPictionaryWord = word;
+  room.pictionaryGuessOrder = [];
+
+  const drawerIsP1 = room.pictionaryDrawerToggle % 2 === 0;
+
+  // Emit round info to each player
+  room.pairs.forEach(pair => {
+    const drawer = drawerIsP1 ? pair.p1 : pair.p2;
+    const guesser = drawerIsP1 ? pair.p2 : pair.p1;
+
+    const baseData = {
+      round: room.currentRound,
+      totalRounds: room.roundCount,
+      drawerId: drawer.id,
+      guesserId: guesser.id,
+      drawerName: drawer.username,
+      guesserName: guesser.username,
+    };
+
+    // Drawer gets the word
+    io.to(drawer.id).emit("pictionaryRound", { ...baseData, word: word });
+    // Guesser doesn't
+    io.to(guesser.id).emit("pictionaryRound", { ...baseData });
+  });
+
+  // Spectators
+  const allPlayerIds = room.pairs.flatMap(p => [p.p1.id, p.p2.id]);
+  const firstPair = room.pairs[0];
+  const drawer0 = drawerIsP1 ? firstPair.p1 : firstPair.p2;
+  const guesser0 = drawerIsP1 ? firstPair.p2 : firstPair.p1;
+  room.spectators.forEach(s => {
+    io.to(s.id).emit("pictionaryRound", {
+      round: room.currentRound,
+      totalRounds: room.roundCount,
+      drawerId: drawer0.id,
+      guesserId: guesser0.id,
+      drawerName: drawer0.username,
+      guesserName: guesser0.username,
+    });
+  });
+
+  // 45s timer
+  if (room.pictionaryTimer) clearTimeout(room.pictionaryTimer);
+  room.pictionaryTimer = setTimeout(() => {
+    endPictionaryRound(roomId);
+  }, 45000);
+}
+
+function endPictionaryRound(roomId) {
+  const room = rooms[roomId];
+  if (!room || room.gameStatus !== "playing") return;
+
+  if (room.pictionaryTimer) {
+    clearTimeout(room.pictionaryTimer);
+    room.pictionaryTimer = null;
+  }
+
+  io.to(roomId).emit("pictionaryRoundEnd", {
+    word: room._currentPictionaryWord,
+  });
+
+  updatePictionaryLeaderboard(roomId);
+
+  room.pictionaryDrawerToggle++;
+  room.currentRound++;
+
+  if (room.currentRound > room.roundCount) {
+    // Game over
+    setTimeout(() => {
+      const sorted = [...room.pairs].sort(
+        (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
+      );
+      const winner = sorted[0];
+      const winScore = room.pictionaryScores[winner.id] || 0;
+      io.to(roomId).emit("pictionaryGameOver",
+        `${winner.teamName} kazandı! (${winScore} puan) 🏆`);
+      room.gameStatus = "finished";
+    }, 2500);
+    return;
+  }
+
+  io.to(roomId).emit("roundChanged", room.currentRound);
+  setTimeout(() => {
+    startPictionaryRound(roomId);
+  }, 3000);
+}
+
+function updatePictionaryLeaderboard(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const sorted = [...room.pairs].sort(
+    (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
+  );
+
+  const scores = sorted.map((p, i) => ({
+    rank: i + 1,
+    name: p.teamName,
+    score: room.pictionaryScores[p.id] || 0,
+    eliminated: false,
+  }));
+
+  io.to(roomId).emit("updateScoreboard", scores);
+}
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Sunucu ${PORT} portunda!`));

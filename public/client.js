@@ -4,6 +4,10 @@ let myPlayerId = null;
 let amIPlaying = false;
 let timerInterval = null;
 let pendingRoomData = null;
+let letterAnimationDone = true;
+let pendingCategoryData = null;
+let waitingForKeyPress = false;
+let currentTargetLetter = null;
 
 // --- GİRİŞ ---
 function createRoom() {
@@ -392,6 +396,24 @@ socket.on("isimSehirStart", (data) => {
   document.getElementById("is-round-display").innerText =
     `Tur: 1 / ${window._totalRounds}`;
 
+  // Panelleri hemen renklendir
+  if (data.firstPair) {
+    const p1El = document.getElementById("is-left-panel");
+    const p2El = document.getElementById("is-right-panel");
+    document.getElementById("isLeftName").innerText = data.firstPair.p1.username;
+    document.getElementById("isRightName").innerText = data.firstPair.p2.username;
+    p1El.className = `game-panel panel-${data.firstPair.p1.gender}`;
+    p2El.className = `game-panel panel-${data.firstPair.p2.gender}`;
+
+    const iamP2 = myPlayerId === data.firstPair.p2.id;
+    if (iamP2) {
+      document.getElementById("isLeftName").innerText = data.firstPair.p2.username;
+      document.getElementById("isRightName").innerText = data.firstPair.p1.username;
+      p1El.className = `game-panel panel-${data.firstPair.p2.gender}`;
+      p2El.className = `game-panel panel-${data.firstPair.p1.gender}`;
+    }
+  }
+
   Swal.fire({ title: "İsim Şehir Başlıyor!", timer: 1500, showConfirmButton: false });
 
   document.getElementById("isWordInput").addEventListener("keydown", (e) => {
@@ -400,9 +422,48 @@ socket.on("isimSehirStart", (data) => {
 });
 
 socket.on("letterSelected", (data) => {
+  letterAnimationDone = false;
+  waitingForKeyPress = true;
+  currentTargetLetter = data.letter;
+  pendingCategoryData = null;
+
+  const inp = document.getElementById("isWordInput");
+  const inpArea = document.getElementById("is-input-area");
+
   animateLetter(data.letter, () => {
-    // animation done, server will send categoryStart
+    letterAnimationDone = true;
+    // Animasyon bitti, placeholder olarak harfi koy
+    inp.value = "";
+    inp.disabled = false;
+    inp.placeholder = data.letter;
+    inp.focus();
   });
+
+  // Input'a yazılan harfi kontrol et
+  function onLetterInput(e) {
+    const typed = inp.value.toUpperCase();
+    if (!letterAnimationDone) return;
+
+    if (typed === currentTargetLetter) {
+      // Doğru harf girildi, yazılan harfi koru ve devam et
+      waitingForKeyPress = false;
+      inp.removeEventListener("input", onLetterInput);
+      if (pendingCategoryData) {
+        inp.placeholder = pendingCategoryData.category + "...";
+        handleCategoryStart(pendingCategoryData);
+        pendingCategoryData = null;
+      } else {
+        inp.placeholder = "Cevap...";
+      }
+    } else if (typed.length > 0) {
+      // Yanlış harf, titret ve temizle
+      inp.value = "";
+      inp.classList.add("pic-guess-wrong");
+      setTimeout(() => inp.classList.remove("pic-guess-wrong"), 500);
+    }
+  }
+  inp.addEventListener("input", onLetterInput);
+
   if (data.currentRound) {
     document.getElementById("is-round-display").innerText =
       `Tur: ${data.currentRound} / ${data.totalRounds || window._totalRounds}`;
@@ -410,9 +471,25 @@ socket.on("letterSelected", (data) => {
 });
 
 socket.on("categoryStart", (data) => {
+  // UI'ı hemen kur (paneller, renkler, isimler)
+  setupCategoryUI(data);
+
+  if (!letterAnimationDone || waitingForKeyPress) {
+    // Animasyon veya harf onayı bekleniyor, timer'ı sonra başlat
+    pendingCategoryData = data;
+    return;
+  }
+  startTimer(window._roundTime, "is-timer");
+});
+
+function handleCategoryStart(data) {
+  // Harf onayından sonra sadece timer başlat
+  startTimer(window._roundTime, "is-timer");
+}
+
+function setupCategoryUI(data) {
   updateCategoryTabs(data.category);
   document.getElementById("is-game-log").innerHTML = "";
-  startTimer(window._roundTime, "is-timer");
 
   document.getElementById("isLeftName").innerText = data.p1.username;
   document.getElementById("isRightName").innerText = data.p2.username;
@@ -441,9 +518,6 @@ socket.on("categoryStart", (data) => {
     const inp = document.getElementById("isWordInput");
     inp.disabled = false;
     document.getElementById("isSendBtn").disabled = false;
-    inp.value = "";
-    inp.placeholder = data.category + "...";
-    inp.focus();
 
     if (iamP2) {
       document.getElementById("isLeftName").innerText = data.p2.username;
@@ -460,13 +534,17 @@ socket.on("categoryStart", (data) => {
     specL.innerText = "🤔";
     specR.innerText = "🤔";
   }
-});
+}
 
 socket.on("isimSehirResult", (res) => {
   clearInterval(timerInterval);
   const div = document.createElement("div");
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
-  div.innerHTML = `${res.category}: ${res.p1Word} - ${res.p2Word} ${res.match ? "✅ +1" : "❌ 0"}`;
+  let resultText = `${res.category}: ${res.p1Word} - ${res.p2Word} ${res.match ? "✅ +1" : "❌ 0"}`;
+  if (res.example) {
+    resultText += ` (Örnek: ${res.example})`;
+  }
+  div.innerHTML = resultText;
   document.getElementById("is-game-log").prepend(div);
 
   if (!amIPlaying) {

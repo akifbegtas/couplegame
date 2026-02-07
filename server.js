@@ -13,6 +13,37 @@ const rooms = {};
 const TURKISH_LETTERS = ["A","B","C","Ç","D","E","F","G","H","I","İ","J","K","L","M","N","O","Ö","P","R","S","Ş","T","U","Ü","V","Y","Z"];
 const CATEGORIES = ["İSİM", "ŞEHİR", "HAYVAN"];
 
+const EXAMPLES = {
+  "A": { "İSİM": "Ayşe", "ŞEHİR": "Ankara", "HAYVAN": "Aslan" },
+  "B": { "İSİM": "Burak", "ŞEHİR": "Bursa", "HAYVAN": "Balina" },
+  "C": { "İSİM": "Cem", "ŞEHİR": "Canberra", "HAYVAN": "Ceylan" },
+  "Ç": { "İSİM": "Çiğdem", "ŞEHİR": "Çanakkale", "HAYVAN": "Çakal" },
+  "D": { "İSİM": "Deniz", "ŞEHİR": "Denizli", "HAYVAN": "Deve" },
+  "E": { "İSİM": "Elif", "ŞEHİR": "Edirne", "HAYVAN": "Eşek" },
+  "F": { "İSİM": "Fatma", "ŞEHİR": "Frankfurt", "HAYVAN": "Flamingo" },
+  "G": { "İSİM": "Gül", "ŞEHİR": "Gaziantep", "HAYVAN": "Gorilla" },
+  "H": { "İSİM": "Hakan", "ŞEHİR": "Hatay", "HAYVAN": "Hamster" },
+  "I": { "İSİM": "Işıl", "ŞEHİR": "Isparta", "HAYVAN": "Iguana" },
+  "İ": { "İSİM": "İrem", "ŞEHİR": "İstanbul", "HAYVAN": "İnek" },
+  "J": { "İSİM": "Jale", "ŞEHİR": "Johannesburg", "HAYVAN": "Jaguar" },
+  "K": { "İSİM": "Kemal", "ŞEHİR": "Konya", "HAYVAN": "Kanguru" },
+  "L": { "İSİM": "Leyla", "ŞEHİR": "Londra", "HAYVAN": "Lama" },
+  "M": { "İSİM": "Murat", "ŞEHİR": "Mersin", "HAYVAN": "Maymun" },
+  "N": { "İSİM": "Naz", "ŞEHİR": "Nevşehir", "HAYVAN": "Narval" },
+  "O": { "İSİM": "Okan", "ŞEHİR": "Ordu", "HAYVAN": "Ördek" },
+  "Ö": { "İSİM": "Özge", "ŞEHİR": "Ödenburg", "HAYVAN": "Ökse" },
+  "P": { "İSİM": "Pınar", "ŞEHİR": "Paris", "HAYVAN": "Penguen" },
+  "R": { "İSİM": "Rüya", "ŞEHİR": "Rize", "HAYVAN": "Rakun" },
+  "S": { "İSİM": "Selin", "ŞEHİR": "Samsun", "HAYVAN": "Sincap" },
+  "Ş": { "İSİM": "Şeyma", "ŞEHİR": "Şanlıurfa", "HAYVAN": "Şahin" },
+  "T": { "İSİM": "Tolga", "ŞEHİR": "Trabzon", "HAYVAN": "Tavşan" },
+  "U": { "İSİM": "Umut", "ŞEHİR": "Uşak", "HAYVAN": "Unicorn" },
+  "Ü": { "İSİM": "Ümit", "ŞEHİR": "Üsküp", "HAYVAN": "Ülker" },
+  "V": { "İSİM": "Volkan", "ŞEHİR": "Van", "HAYVAN": "Vaşak" },
+  "Y": { "İSİM": "Yasemin", "ŞEHİR": "Yozgat", "HAYVAN": "Yunus" },
+  "Z": { "İSİM": "Zeynep", "ŞEHİR": "Zonguldak", "HAYVAN": "Zebra" },
+};
+
 const PICTIONARY_WORDS = [
   "ARABA", "EV", "AĞAÇ", "GÜNEŞ", "YILDIZ", "AY", "BULUT", "YAĞMUR", "KAR", "DENİZ",
   "BALIK", "KEDİ", "KÖPEK", "KUŞ", "KELEBEK", "ÇİÇEK", "GÜL", "KALP", "YÜZÜK", "PASTA",
@@ -186,6 +217,7 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("isimSehirStart", {
         roundCount: room.roundCount,
         roundTime: room.roundTime,
+        firstPair: validPairs[0],
       });
 
       updateIsimSehirLeaderboard(roomId);
@@ -311,12 +343,18 @@ io.on("connection", (socket) => {
 
       updateIsimSehirLeaderboard(roomId);
 
+      const bothFailed = w1 === "⏰" && w2 === "⏰";
+      const example = bothFailed && EXAMPLES[room.currentLetter]
+        ? EXAMPLES[room.currentLetter][room.currentCategory]
+        : null;
+
       const result = {
         pairId: currentPair.id,
         p1Word: w1,
         p2Word: w2,
         match: isMatch,
         category: room.currentCategory,
+        example: example,
       };
 
       setTimeout(() => {

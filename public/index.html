@@ -147,18 +147,32 @@
       <div id="game-select-screen" class="screen">
         <div class="game-select-container">
           <h2 class="select-title">Oyun Seç</h2>
+          <div class="mode-toggle-container" id="mode-toggle">
+            <button class="mode-btn active" id="mode-btn-cift" onclick="selectMode('cift')">Çift Modu</button>
+            <button class="mode-btn" id="mode-btn-tek" onclick="selectMode('tek')">Tek Modu</button>
+          </div>
+          <div id="tek-player-count" class="hidden" style="margin:10px auto;text-align:center;">
+            <label style="color:#fff;font-weight:600;">Oyuncu Sayısı:</label>
+            <select id="tekPlayerCountSelect" style="padding:6px 12px;border-radius:8px;border:none;font-size:1rem;">
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="8">8</option>
+            </select>
+          </div>
           <div class="game-cards">
-            <div class="game-card" onclick="selectGame('telepati')">
+            <div class="game-card" id="card-telepati" onclick="selectGame('telepati')">
               <div class="game-card-icon">🧠</div>
               <h3>Telepati</h3>
               <p>Aynı kelimeyi yazmaya çalışın!</p>
             </div>
-            <div class="game-card" onclick="selectGame('isimSehir')">
+            <div class="game-card" id="card-isimSehir" onclick="selectGame('isimSehir')">
               <div class="game-card-icon">🔤</div>
               <h3>İsim Şehir</h3>
               <p>Harf gelir, kategori gelir, eşleşin!</p>
             </div>
-            <div class="game-card" onclick="selectGame('pictionary')">
+            <div class="game-card" id="card-pictionary" onclick="selectGame('pictionary')">
               <div class="game-card-icon">🎨</div>
               <h3>Resim Çiz</h3>
               <p>Çiz, tahmin et, puan topla!</p>

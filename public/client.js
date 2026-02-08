@@ -8,6 +8,7 @@ let letterAnimationDone = true;
 let pendingCategoryData = null;
 let waitingForKeyPress = false;
 let currentTargetLetter = null;
+let selectedMode = 'cift';
 
 // --- GİRİŞ ---
 function createRoom() {
@@ -23,9 +24,33 @@ function createRoom() {
   showScreen("gameSelect");
 }
 
+function selectMode(mode) {
+  selectedMode = mode;
+  document.getElementById('mode-btn-cift').classList.toggle('active', mode === 'cift');
+  document.getElementById('mode-btn-tek').classList.toggle('active', mode === 'tek');
+
+  const telepati = document.getElementById('card-telepati');
+  const isimSehir = document.getElementById('card-isimSehir');
+  const tekCount = document.getElementById('tek-player-count');
+
+  if (mode === 'tek') {
+    telepati.classList.add('disabled-card');
+    isimSehir.classList.add('disabled-card');
+    tekCount.classList.remove('hidden');
+  } else {
+    telepati.classList.remove('disabled-card');
+    isimSehir.classList.remove('disabled-card');
+    tekCount.classList.add('hidden');
+  }
+}
+
 function selectGame(type) {
   if (!pendingRoomData) return;
   pendingRoomData.gameType = type;
+  pendingRoomData.gameMode = selectedMode;
+  if (selectedMode === 'tek') {
+    pendingRoomData.playerCount = document.getElementById('tekPlayerCountSelect').value;
+  }
   socket.emit("createRoom", pendingRoomData);
   pendingRoomData = null;
 }
@@ -192,16 +217,37 @@ socket.on("updateLobby", (data) => {
 
   const div = document.getElementById("teams-container");
   div.innerHTML = "";
-  data.teams.forEach((t, i) => {
-    div.innerHTML += `<div class="team-card">
-            <div class="team-title">${t.name}</div>
-            <div class="slots-container">
-                ${renderSlot(t.p1, i, "p1", data.hostId)}
-                ${renderSlot(t.p2, i, "p2", data.hostId)}
-            </div>
-        </div>`;
-  });
 
+  if (data.gameMode === "tek") {
+    // Tek mod: oyuncu listesi
+    const playerSlots = data.players.map(p => {
+      const icon = p.gender === "female" ? "👩" : "👨";
+      const cls = p.gender === "female" ? "slot-female" : "slot-male";
+      const hostBadge = p.id === data.hostId ? ' <span class="host-badge">KURUCU</span>' : '';
+      return `<div class="slot filled ${cls}">${icon} ${p.username}${hostBadge}</div>`;
+    }).join("");
+    div.innerHTML = `<div class="team-card" style="grid-column:1/-1;">
+      <div class="team-title">Oyuncular (${data.players.length}/${data.maxPlayers})</div>
+      <div class="tek-players-list">${playerSlots}</div>
+    </div>`;
+  } else {
+    // Çift mod: takım kartları
+    data.teams.forEach((t, i) => {
+      div.innerHTML += `<div class="team-card">
+              <div class="team-title">${t.name}</div>
+              <div class="slots-container">
+                  ${renderSlot(t.p1, i, "p1", data.hostId)}
+                  ${renderSlot(t.p2, i, "p2", data.hostId)}
+              </div>
+          </div>`;
+    });
+  }
+
+  // Seyirciler
+  const specTitle = document.querySelector('.spectators-area h3');
+  if (specTitle) {
+    specTitle.innerText = data.gameMode === "tek" ? "İzleyiciler" : "Lobidekiler (Takım Seçin)";
+  }
   const specs = data.spectators
     .map((p) => {
       const icon = p.gender === "female" ? "👩" : "👨";

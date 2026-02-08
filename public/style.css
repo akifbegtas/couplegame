@@ -749,6 +749,45 @@ button:active {
   75% { transform: translateX(6px); }
 }
 
+/* ======= MOD TOGGLE ======= */
+.mode-toggle-container {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 18px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 4px;
+}
+.mode-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.5);
+  font-weight: 600;
+  transition: all 0.3s;
+}
+.mode-btn.active {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+}
+.game-card.disabled-card {
+  opacity: 0.25;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.tek-players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
 /* ======= MOBİL ======= */
 @media (max-width: 600px) {
   .main-container {

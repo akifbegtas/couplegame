@@ -70,11 +70,7 @@ io.on("connection", (socket) => {
     if (!time || time < 5) time = 10;
 
     const gameType = data.gameType || "telepati";
-
-    const teams = [];
-    for (let i = 0; i < count; i++) {
-      teams.push({ id: i, name: `Takım ${i + 1}`, p1: null, p2: null });
-    }
+    const gameMode = data.gameMode || "cift";
 
     const hostPlayer = {
       id: socket.id,
@@ -82,11 +78,27 @@ io.on("connection", (socket) => {
       gender: data.gender,
       isHost: true,
     };
-    teams[0].p1 = hostPlayer;
+
+    let teams = [];
+    let players = [];
+    let maxPlayers = 0;
+
+    if (gameMode === "tek") {
+      maxPlayers = parseInt(data.playerCount) || 4;
+      players.push(hostPlayer);
+    } else {
+      for (let i = 0; i < count; i++) {
+        teams.push({ id: i, name: `Takım ${i + 1}`, p1: null, p2: null });
+      }
+      teams[0].p1 = hostPlayer;
+    }
 
     rooms[roomId] = {
       id: roomId,
+      gameMode: gameMode,
       teams: teams,
+      players: players,
+      maxPlayers: maxPlayers,
       spectators: [],
       gameStatus: "waiting",
       gameType: gameType,
@@ -96,10 +108,12 @@ io.on("connection", (socket) => {
       currentRound: 1,
       pairs: [],
       moves: {},
+      soloPlayers: [],
+      currentDrawerIndex: 0,
       // Pictionary specific
       pictionaryScores: {},
       pictionaryUsedWords: [],
-      pictionaryDrawerToggle: 0, // 0=p1 draws, 1=p2 draws
+      pictionaryDrawerToggle: 0,
       pictionaryGuessOrder: [],
       pictionaryTimer: null,
       // İsim Şehir specific
@@ -111,16 +125,12 @@ io.on("connection", (socket) => {
     };
 
     console.log(
-      `Oda Kuruldu: ${roomId} | Oyun: ${gameType} | Tur: ${rounds} | Süre: ${time} | Takım: ${count}`,
+      `Oda Kuruldu: ${roomId} | Mod: ${gameMode} | Oyun: ${gameType} | Tur: ${rounds} | Süre: ${time}`,
     );
 
     socket.join(roomId);
     socket.emit("roomCreated", roomId);
-    io.to(roomId).emit("updateLobby", {
-      teams: rooms[roomId].teams,
-      spectators: rooms[roomId].spectators,
-      hostId: socket.id,
-    });
+    emitLobbyUpdate(roomId);
   });
 
   // --- ODAYA KATILMA ---
@@ -128,14 +138,18 @@ io.on("connection", (socket) => {
     const room = rooms[roomId];
     if (room && room.gameStatus === "waiting") {
       const newPlayer = { id: socket.id, username, gender, isHost: false };
-      room.spectators.push(newPlayer);
+      if (room.gameMode === "tek") {
+        if (room.players.length < room.maxPlayers) {
+          room.players.push(newPlayer);
+        } else {
+          room.spectators.push(newPlayer);
+        }
+      } else {
+        room.spectators.push(newPlayer);
+      }
       socket.join(roomId);
       socket.emit("joinedRoom", roomId);
-      io.to(roomId).emit("updateLobby", {
-        teams: room.teams,
-        spectators: room.spectators,
-        hostId: room.teams[0].p1 ? room.teams[0].p1.id : null,
-      });
+      emitLobbyUpdate(roomId);
     } else {
       socket.emit("error", "Oda bulunamadı!");
     }
@@ -156,11 +170,7 @@ io.on("connection", (socket) => {
         targetTeam.p2 = player;
         room.spectators.splice(playerIndex, 1);
       }
-      io.to(roomId).emit("updateLobby", {
-        teams: room.teams,
-        spectators: room.spectators,
-        hostId: room.teams[0].p1 ? room.teams[0].p1.id : null,
-      });
+      emitLobbyUpdate(roomId);
     }
   });
 
@@ -169,6 +179,36 @@ io.on("connection", (socket) => {
     const room = rooms[roomId];
     if (!room) return;
 
+    // TEK MOD
+    if (room.gameMode === "tek") {
+      if (room.gameType !== "pictionary") {
+        socket.emit("error", "Tek modda sadece Resim Çiz oynanabilir!");
+        return;
+      }
+      if (room.players.length < 2) {
+        socket.emit("error", "En az 2 oyuncu gerekli!");
+        return;
+      }
+      room.gameStatus = "playing";
+      room.soloPlayers = [...room.players];
+      room.currentRound = 1;
+      room.currentDrawerIndex = 0;
+      room.pictionaryScores = {};
+      room.soloPlayers.forEach(p => {
+        room.pictionaryScores[p.id] = 0;
+      });
+
+      io.to(roomId).emit("pictionaryStart", {
+        roundCount: room.roundCount,
+        gameMode: "tek",
+      });
+
+      updatePictionaryLeaderboard(roomId);
+      setTimeout(() => startPictionaryRound(roomId), 2000);
+      return;
+    }
+
+    // ÇİFT MOD
     const validPairs = [];
     room.teams.forEach((t) => {
       if (t.p1 && t.p2) {
@@ -438,13 +478,15 @@ io.on("connection", (socket) => {
         if (t.p2 && t.p2.id === socket.id) t.p2 = null;
       });
 
-      room.spectators = room.spectators.filter((p) => p.id !== socket.id);
+      if (room.gameMode === "tek") {
+        room.players = room.players.filter(p => p.id !== socket.id);
+        if (room.soloPlayers) {
+          room.soloPlayers = room.soloPlayers.filter(p => p.id !== socket.id);
+        }
+      }
 
-      io.to(roomId).emit("updateLobby", {
-        teams: room.teams,
-        spectators: room.spectators,
-        hostId: room.teams[0].p1 ? room.teams[0].p1.id : null,
-      });
+      room.spectators = room.spectators.filter((p) => p.id !== socket.id);
+      emitLobbyUpdate(roomId);
     }
   });
 });
@@ -649,43 +691,65 @@ function startPictionaryRound(roomId) {
   room._currentPictionaryWord = word;
   room.pictionaryGuessOrder = [];
 
-  const drawerIsP1 = room.pictionaryDrawerToggle % 2 === 0;
-
-  // Emit round info to each player
-  room.pairs.forEach(pair => {
-    const drawer = drawerIsP1 ? pair.p1 : pair.p2;
-    const guesser = drawerIsP1 ? pair.p2 : pair.p1;
+  if (room.gameMode === "tek") {
+    // TEK MOD: bir kişi çizer, herkes tahmin eder
+    const drawerIndex = room.currentDrawerIndex % room.soloPlayers.length;
+    const drawer = room.soloPlayers[drawerIndex];
 
     const baseData = {
       round: room.currentRound,
       totalRounds: room.roundCount,
       drawerId: drawer.id,
-      guesserId: guesser.id,
       drawerName: drawer.username,
-      guesserName: guesser.username,
+      gameMode: "tek",
     };
 
-    // Drawer gets the word
     io.to(drawer.id).emit("pictionaryRound", { ...baseData, word: word });
-    // Guesser doesn't
-    io.to(guesser.id).emit("pictionaryRound", { ...baseData });
-  });
 
-  // Spectators
-  const allPlayerIds = room.pairs.flatMap(p => [p.p1.id, p.p2.id]);
-  const firstPair = room.pairs[0];
-  const drawer0 = drawerIsP1 ? firstPair.p1 : firstPair.p2;
-  const guesser0 = drawerIsP1 ? firstPair.p2 : firstPair.p1;
-  room.spectators.forEach(s => {
-    io.to(s.id).emit("pictionaryRound", {
-      round: room.currentRound,
-      totalRounds: room.roundCount,
-      drawerId: drawer0.id,
-      guesserId: guesser0.id,
-      drawerName: drawer0.username,
-      guesserName: guesser0.username,
+    room.soloPlayers.forEach(p => {
+      if (p.id !== drawer.id) {
+        io.to(p.id).emit("pictionaryRound", { ...baseData, guesserId: p.id, guesserName: p.username });
+      }
     });
-  });
+
+    room.spectators.forEach(s => {
+      io.to(s.id).emit("pictionaryRound", { ...baseData });
+    });
+  } else {
+    // ÇİFT MOD
+    const drawerIsP1 = room.pictionaryDrawerToggle % 2 === 0;
+
+    room.pairs.forEach(pair => {
+      const drawer = drawerIsP1 ? pair.p1 : pair.p2;
+      const guesser = drawerIsP1 ? pair.p2 : pair.p1;
+
+      const baseData = {
+        round: room.currentRound,
+        totalRounds: room.roundCount,
+        drawerId: drawer.id,
+        guesserId: guesser.id,
+        drawerName: drawer.username,
+        guesserName: guesser.username,
+      };
+
+      io.to(drawer.id).emit("pictionaryRound", { ...baseData, word: word });
+      io.to(guesser.id).emit("pictionaryRound", { ...baseData });
+    });
+
+    const firstPair = room.pairs[0];
+    const drawer0 = drawerIsP1 ? firstPair.p1 : firstPair.p2;
+    const guesser0 = drawerIsP1 ? firstPair.p2 : firstPair.p1;
+    room.spectators.forEach(s => {
+      io.to(s.id).emit("pictionaryRound", {
+        round: room.currentRound,
+        totalRounds: room.roundCount,
+        drawerId: drawer0.id,
+        guesserId: guesser0.id,
+        drawerName: drawer0.username,
+        guesserName: guesser0.username,
+      });
+    });
+  }
 
   // 45s timer
   if (room.pictionaryTimer) clearTimeout(room.pictionaryTimer);
@@ -749,6 +813,25 @@ function updatePictionaryLeaderboard(roomId) {
   }));
 
   io.to(roomId).emit("updateScoreboard", scores);
+}
+
+function emitLobbyUpdate(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  let hostId = null;
+  if (room.gameMode === "tek") {
+    hostId = room.players.length > 0 ? room.players[0].id : null;
+  } else {
+    hostId = room.teams[0] && room.teams[0].p1 ? room.teams[0].p1.id : null;
+  }
+  io.to(roomId).emit("updateLobby", {
+    gameMode: room.gameMode,
+    teams: room.teams,
+    players: room.players || [],
+    maxPlayers: room.maxPlayers || 0,
+    spectators: room.spectators,
+    hostId: hostId,
+  });
 }
 
 const PORT = process.env.PORT || 3000;

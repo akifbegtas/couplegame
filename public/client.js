@@ -437,6 +437,10 @@ socket.on("letterSelected", (data) => {
     inp.disabled = false;
     inp.placeholder = data.letter;
     inp.focus();
+    // categoryStart zaten geldiyse timer'ı şimdi başlat
+    if (pendingCategoryData) {
+      startTimer(window._roundTime, "is-timer");
+    }
   });
 
   // Input'a yazılan harfi kontrol et
@@ -450,8 +454,6 @@ socket.on("letterSelected", (data) => {
       inp.removeEventListener("input", onLetterInput);
       if (pendingCategoryData) {
         inp.placeholder = pendingCategoryData.category + "...";
-        handleCategoryStart(pendingCategoryData);
-        pendingCategoryData = null;
       } else {
         inp.placeholder = "Cevap...";
       }
@@ -473,19 +475,15 @@ socket.on("letterSelected", (data) => {
 socket.on("categoryStart", (data) => {
   // UI'ı hemen kur (paneller, renkler, isimler)
   setupCategoryUI(data);
+  pendingCategoryData = data;
 
-  if (!letterAnimationDone || waitingForKeyPress) {
-    // Animasyon veya harf onayı bekleniyor, timer'ı sonra başlat
-    pendingCategoryData = data;
+  if (!letterAnimationDone) {
+    // Animasyon bekleniyor, timer'ı sonra başlat
     return;
   }
+  // Animasyon bitti, timer'ı hemen başlat
   startTimer(window._roundTime, "is-timer");
 });
-
-function handleCategoryStart(data) {
-  // Harf onayından sonra sadece timer başlat
-  startTimer(window._roundTime, "is-timer");
-}
 
 function setupCategoryUI(data) {
   updateCategoryTabs(data.category);

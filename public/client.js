@@ -34,12 +34,12 @@ function selectMode(mode) {
   const tekCount = document.getElementById('tek-player-count');
 
   if (mode === 'tek') {
-    telepati.classList.add('disabled-card');
-    isimSehir.classList.add('disabled-card');
+    telepati.style.display = 'none';
+    isimSehir.style.display = 'none';
     tekCount.classList.remove('hidden');
   } else {
-    telepati.classList.remove('disabled-card');
-    isimSehir.classList.remove('disabled-card');
+    telepati.style.display = '';
+    isimSehir.style.display = '';
     tekCount.classList.add('hidden');
   }
 }
@@ -728,11 +728,9 @@ socket.on("pictionaryStart", (data) => {
 });
 
 socket.on("pictionaryRound", (data) => {
-  // data: { round, totalRounds, word (only for drawer), drawerId, guesserId, drawerName, guesserName }
   document.getElementById("pic-round-display").innerText = `Tur: ${data.round} / ${data.totalRounds}`;
   document.getElementById("pic-game-log").innerHTML = "";
 
-  // Clear canvas
   const canvas = document.getElementById("pic-canvas");
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -740,42 +738,79 @@ socket.on("pictionaryRound", (data) => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const amDrawer = myPlayerId === data.drawerId;
-  const amGuesser = myPlayerId === data.guesserId;
   picIsDrawer = amDrawer;
-  amIPlaying = amDrawer || amGuesser;
 
   const infoBar = document.getElementById("pic-turn-info");
   const wordDisplay = document.getElementById("pic-word-display");
   const toolbar = document.getElementById("pic-toolbar");
   const guessArea = document.getElementById("pic-guess-area");
 
-  if (amDrawer) {
-    infoBar.innerText = `ÇİZ! ${data.drawerName} (sen) çiziyorsun`;
-    infoBar.style.backgroundColor = "#e67e22";
-    wordDisplay.classList.remove("hidden");
-    wordDisplay.innerText = `Kelime: ${data.word}`;
-    toolbar.classList.remove("hidden");
-    guessArea.classList.add("hidden");
-    canvas.style.cursor = "crosshair";
-  } else if (amGuesser) {
-    infoBar.innerText = `TAHMİN ET! ${data.drawerName} çiziyor`;
-    infoBar.style.backgroundColor = "#27ae60";
-    wordDisplay.classList.add("hidden");
-    toolbar.classList.add("hidden");
-    guessArea.classList.remove("hidden");
-    canvas.style.cursor = "default";
-    const inp = document.getElementById("pic-guess-input");
-    inp.disabled = false;
-    document.getElementById("pic-guess-btn").disabled = false;
-    inp.value = "";
-    inp.focus();
+  if (data.gameMode === "tek") {
+    // TEK MOD
+    const amGuesser = !amDrawer && data.guesserId === myPlayerId;
+    amIPlaying = amDrawer || amGuesser;
+
+    if (amDrawer) {
+      infoBar.innerText = `ÇİZ! Herkes tahmin edecek`;
+      infoBar.style.backgroundColor = "#e67e22";
+      wordDisplay.classList.remove("hidden");
+      wordDisplay.innerText = `Kelime: ${data.word}`;
+      toolbar.classList.remove("hidden");
+      guessArea.classList.add("hidden");
+      canvas.style.cursor = "crosshair";
+    } else if (amGuesser) {
+      infoBar.innerText = `TAHMİN ET! ${data.drawerName} çiziyor`;
+      infoBar.style.backgroundColor = "#27ae60";
+      wordDisplay.classList.add("hidden");
+      toolbar.classList.add("hidden");
+      guessArea.classList.remove("hidden");
+      canvas.style.cursor = "default";
+      const inp = document.getElementById("pic-guess-input");
+      inp.disabled = false;
+      document.getElementById("pic-guess-btn").disabled = false;
+      inp.value = "";
+      inp.focus();
+    } else {
+      infoBar.innerText = `${data.drawerName} çiziyor`;
+      infoBar.style.backgroundColor = "#34495e";
+      wordDisplay.classList.add("hidden");
+      toolbar.classList.add("hidden");
+      guessArea.classList.add("hidden");
+      canvas.style.cursor = "default";
+    }
   } else {
-    infoBar.innerText = `${data.drawerName} çiziyor, ${data.guesserName} tahmin ediyor`;
-    infoBar.style.backgroundColor = "#34495e";
-    wordDisplay.classList.add("hidden");
-    toolbar.classList.add("hidden");
-    guessArea.classList.add("hidden");
-    canvas.style.cursor = "default";
+    // ÇİFT MOD
+    const amGuesser = myPlayerId === data.guesserId;
+    amIPlaying = amDrawer || amGuesser;
+
+    if (amDrawer) {
+      infoBar.innerText = `ÇİZ! ${data.drawerName} (sen) çiziyorsun`;
+      infoBar.style.backgroundColor = "#e67e22";
+      wordDisplay.classList.remove("hidden");
+      wordDisplay.innerText = `Kelime: ${data.word}`;
+      toolbar.classList.remove("hidden");
+      guessArea.classList.add("hidden");
+      canvas.style.cursor = "crosshair";
+    } else if (amGuesser) {
+      infoBar.innerText = `TAHMİN ET! ${data.drawerName} çiziyor`;
+      infoBar.style.backgroundColor = "#27ae60";
+      wordDisplay.classList.add("hidden");
+      toolbar.classList.add("hidden");
+      guessArea.classList.remove("hidden");
+      canvas.style.cursor = "default";
+      const inp = document.getElementById("pic-guess-input");
+      inp.disabled = false;
+      document.getElementById("pic-guess-btn").disabled = false;
+      inp.value = "";
+      inp.focus();
+    } else {
+      infoBar.innerText = `${data.drawerName} çiziyor, ${data.guesserName} tahmin ediyor`;
+      infoBar.style.backgroundColor = "#34495e";
+      wordDisplay.classList.add("hidden");
+      toolbar.classList.add("hidden");
+      guessArea.classList.add("hidden");
+      canvas.style.cursor = "default";
+    }
   }
 
   startTimer(45, "pic-timer");
@@ -814,17 +849,26 @@ socket.on("pictionaryWrongGuess", (data) => {
 });
 
 socket.on("pictionaryCorrect", (data) => {
-  // data: { teamName, points, order, word }
-  clearInterval(timerInterval);
   const div = document.createElement("div");
   div.className = "log-item log-success";
   div.innerHTML = `${data.teamName} bildi! +${data.points} puan (${data.order}. sıra)`;
   document.getElementById("pic-game-log").prepend(div);
 
-  if (amIPlaying) {
-    const guessArea = document.getElementById("pic-guess-area");
-    guessArea.classList.add("hidden");
-    Swal.fire({ title: "Doğru!", text: `+${data.points} puan`, icon: "success", timer: 1500, showConfirmButton: false });
+  if (data.gameMode === "tek") {
+    // Tek modda sadece doğru bilen kişinin inputu kapansın
+    if (data.guesserId === myPlayerId) {
+      document.getElementById("pic-guess-input").disabled = true;
+      document.getElementById("pic-guess-btn").disabled = true;
+      Swal.fire({ title: "Doğru!", text: `+${data.points} puan`, icon: "success", timer: 1500, showConfirmButton: false });
+    }
+    // Timer durmasın, tur devam ediyor
+  } else {
+    clearInterval(timerInterval);
+    if (amIPlaying) {
+      const guessArea = document.getElementById("pic-guess-area");
+      guessArea.classList.add("hidden");
+      Swal.fire({ title: "Doğru!", text: `+${data.points} puan`, icon: "success", timer: 1500, showConfirmButton: false });
+    }
   }
 });
 

@@ -431,41 +431,76 @@ io.on("connection", (socket) => {
     const word = room._currentPictionaryWord;
     if (!word) return;
 
-    // Find which pair this guesser belongs to
-    const pair = room.pairs.find(p => p.p1.id === socket.id || p.p2.id === socket.id);
-    if (!pair) return;
+    if (room.gameMode === "tek") {
+      // TEK MOD: bireysel tahmin
+      const player = room.soloPlayers.find(p => p.id === socket.id);
+      if (!player) return;
 
-    // Check this pair hasn't already guessed correctly
-    if (room.pictionaryGuessOrder.includes(pair.id)) return;
+      const drawerIndex = room.currentDrawerIndex % room.soloPlayers.length;
+      const drawer = room.soloPlayers[drawerIndex];
+      if (socket.id === drawer.id) return;
 
-    // Must be the guesser (not the drawer)
-    const drawerIsP1 = room.pictionaryDrawerToggle % 2 === 0;
-    const drawerId = drawerIsP1 ? pair.p1.id : pair.p2.id;
-    if (socket.id === drawerId) return;
+      if (room.pictionaryGuessOrder.includes(socket.id)) return;
 
-    if (cleanGuess === word) {
-      room.pictionaryGuessOrder.push(pair.id);
-      const order = room.pictionaryGuessOrder.length;
-      const pairCount = room.pairs.length;
-      const points = pairCount - order;
+      if (cleanGuess === word) {
+        room.pictionaryGuessOrder.push(socket.id);
+        const order = room.pictionaryGuessOrder.length;
+        const guesserCount = room.soloPlayers.length - 1;
+        const points = guesserCount - order + 1;
 
-      room.pictionaryScores[pair.id] = (room.pictionaryScores[pair.id] || 0) + points;
-      updatePictionaryLeaderboard(roomId);
+        room.pictionaryScores[socket.id] = (room.pictionaryScores[socket.id] || 0) + points;
+        room.pictionaryScores[drawer.id] = (room.pictionaryScores[drawer.id] || 0) + 1;
+        updatePictionaryLeaderboard(roomId);
 
-      io.to(roomId).emit("pictionaryCorrect", {
-        teamName: pair.teamName,
-        points: points,
-        order: order,
-        word: word,
-      });
+        io.to(roomId).emit("pictionaryCorrect", {
+          teamName: player.username,
+          guesserId: socket.id,
+          points: points,
+          order: order,
+          word: word,
+          gameMode: "tek",
+        });
 
-      // All pairs guessed?
-      if (room.pictionaryGuessOrder.length >= room.pairs.length) {
-        endPictionaryRound(roomId);
+        if (room.pictionaryGuessOrder.length >= room.soloPlayers.length - 1) {
+          endPictionaryRound(roomId);
+        }
+      } else {
+        io.to(roomId).emit("pictionaryWrongGuess", { guess: cleanGuess, guesserName: player.username });
       }
     } else {
-      const guesserName = socket.id === pair.p1.id ? pair.p1.username : pair.p2.username;
-      io.to(roomId).emit("pictionaryWrongGuess", { guess: cleanGuess, guesserName });
+      // ÇİFT MOD
+      const pair = room.pairs.find(p => p.p1.id === socket.id || p.p2.id === socket.id);
+      if (!pair) return;
+
+      if (room.pictionaryGuessOrder.includes(pair.id)) return;
+
+      const drawerIsP1 = room.pictionaryDrawerToggle % 2 === 0;
+      const drawerId = drawerIsP1 ? pair.p1.id : pair.p2.id;
+      if (socket.id === drawerId) return;
+
+      if (cleanGuess === word) {
+        room.pictionaryGuessOrder.push(pair.id);
+        const order = room.pictionaryGuessOrder.length;
+        const pairCount = room.pairs.length;
+        const points = pairCount - order;
+
+        room.pictionaryScores[pair.id] = (room.pictionaryScores[pair.id] || 0) + points;
+        updatePictionaryLeaderboard(roomId);
+
+        io.to(roomId).emit("pictionaryCorrect", {
+          teamName: pair.teamName,
+          points: points,
+          order: order,
+          word: word,
+        });
+
+        if (room.pictionaryGuessOrder.length >= room.pairs.length) {
+          endPictionaryRound(roomId);
+        }
+      } else {
+        const guesserName = socket.id === pair.p1.id ? pair.p1.username : pair.p2.username;
+        io.to(roomId).emit("pictionaryWrongGuess", { guess: cleanGuess, guesserName });
+      }
     }
   });
 
@@ -773,19 +808,32 @@ function endPictionaryRound(roomId) {
 
   updatePictionaryLeaderboard(roomId);
 
-  room.pictionaryDrawerToggle++;
+  if (room.gameMode === "tek") {
+    room.currentDrawerIndex++;
+  } else {
+    room.pictionaryDrawerToggle++;
+  }
   room.currentRound++;
 
   if (room.currentRound > room.roundCount) {
-    // Game over
     setTimeout(() => {
-      const sorted = [...room.pairs].sort(
-        (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
-      );
-      const winner = sorted[0];
-      const winScore = room.pictionaryScores[winner.id] || 0;
-      io.to(roomId).emit("pictionaryGameOver",
-        `${winner.teamName} kazandı! (${winScore} puan) 🏆`);
+      if (room.gameMode === "tek") {
+        const sorted = [...room.soloPlayers].sort(
+          (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
+        );
+        const winner = sorted[0];
+        const winScore = room.pictionaryScores[winner.id] || 0;
+        io.to(roomId).emit("pictionaryGameOver",
+          `${winner.username} kazandı! (${winScore} puan) 🏆`);
+      } else {
+        const sorted = [...room.pairs].sort(
+          (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
+        );
+        const winner = sorted[0];
+        const winScore = room.pictionaryScores[winner.id] || 0;
+        io.to(roomId).emit("pictionaryGameOver",
+          `${winner.teamName} kazandı! (${winScore} puan) 🏆`);
+      }
       room.gameStatus = "finished";
     }, 2500);
     return;
@@ -801,18 +849,29 @@ function updatePictionaryLeaderboard(roomId) {
   const room = rooms[roomId];
   if (!room) return;
 
-  const sorted = [...room.pairs].sort(
-    (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
-  );
-
-  const scores = sorted.map((p, i) => ({
-    rank: i + 1,
-    name: p.teamName,
-    score: room.pictionaryScores[p.id] || 0,
-    eliminated: false,
-  }));
-
-  io.to(roomId).emit("updateScoreboard", scores);
+  if (room.gameMode === "tek") {
+    const sorted = [...room.soloPlayers].sort(
+      (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
+    );
+    const scores = sorted.map((p, i) => ({
+      rank: i + 1,
+      name: p.username,
+      score: room.pictionaryScores[p.id] || 0,
+      eliminated: false,
+    }));
+    io.to(roomId).emit("updateScoreboard", scores);
+  } else {
+    const sorted = [...room.pairs].sort(
+      (a, b) => (room.pictionaryScores[b.id] || 0) - (room.pictionaryScores[a.id] || 0),
+    );
+    const scores = sorted.map((p, i) => ({
+      rank: i + 1,
+      name: p.teamName,
+      score: room.pictionaryScores[p.id] || 0,
+      eliminated: false,
+    }));
+    io.to(roomId).emit("updateScoreboard", scores);
+  }
 }
 
 function emitLobbyUpdate(roomId) {

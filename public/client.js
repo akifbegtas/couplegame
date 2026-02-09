@@ -8,39 +8,99 @@ let letterAnimationDone = true;
 let pendingCategoryData = null;
 let waitingForKeyPress = false;
 let currentTargetLetter = null;
-let selectedMode = 'cift';
+let selectedMode = "cift";
+
+// --- AYI UYARI ---
+function showBearBubble(msg, target) {
+  const bubble = document.getElementById("bear-bubble");
+  const bear = document.getElementById("bear-hint");
+  bubble.innerText = msg || "İsmini yazmadan nereye :)";
+  bubble.classList.remove("hidden");
+  bubble.classList.remove("bubble-enter");
+  void bubble.offsetWidth;
+  bubble.classList.add("bubble-enter");
+
+  if (target === "gender") {
+    bear.classList.add("bear-at-gender", "bear-grin");
+  } else {
+    bear.classList.remove("bear-at-gender", "bear-grin");
+  }
+}
+function hideBearBubble() {
+  const bubble = document.getElementById("bear-bubble");
+  const bear = document.getElementById("bear-hint");
+  const isAtGender = bear.classList.contains("bear-at-gender");
+
+  if (isAtGender) {
+    // Cinsiyet seçildi - teşekkür et, yerinde kal
+    bear.classList.remove("bear-grin");
+    bear.classList.add("bear-kiss");
+    bubble.innerText = "Teşekkürler \u{1F618}";
+    bubble.classList.remove("hidden", "bubble-enter");
+    void bubble.offsetWidth;
+    bubble.classList.add("bubble-enter");
+    setTimeout(() => {
+      bubble.classList.add("hidden");
+      bear.classList.remove("bear-kiss");
+    }, 1500);
+  } else {
+    bubble.classList.add("hidden");
+    bear.classList.remove("bear-grin");
+  }
+}
 
 // --- GİRİŞ ---
 function createRoom() {
   const username = document.getElementById("username").value;
-  const gender = document.querySelector('input[name="gender"]:checked').value;
-  const coupleCount = document.getElementById("coupleCountSelect").value;
-  const roundCount = document.getElementById("roundCountInput").value;
-  const roundTime = document.getElementById("roundTimeInput").value;
+  const genderEl = document.querySelector('input[name="gender"]:checked');
 
-  if (!username) return alert("İsim giriniz!");
+  if (!username) return showBearBubble("İsmini yazmadan nereye :)", "name");
+  if (!genderEl) return showBearBubble("Cinsiyetini seçsene :)", "gender");
 
-  pendingRoomData = { username, gender, coupleCount, roundCount, roundTime };
+  hideBearBubble();
+  pendingRoomData = { username, gender: genderEl.value };
   showScreen("gameSelect");
 }
 
 function selectMode(mode) {
   selectedMode = mode;
-  document.getElementById('mode-btn-cift').classList.toggle('active', mode === 'cift');
-  document.getElementById('mode-btn-tek').classList.toggle('active', mode === 'tek');
+  document
+    .getElementById("mode-btn-cift")
+    .classList.toggle("active", mode === "cift");
+  document
+    .getElementById("mode-btn-tek")
+    .classList.toggle("active", mode === "tek");
 
-  const telepati = document.getElementById('card-telepati');
-  const isimSehir = document.getElementById('card-isimSehir');
-  const tekCount = document.getElementById('tek-player-count');
+  const telepati = document.getElementById("card-telepati");
+  const isimSehir = document.getElementById("card-isimSehir");
+  const ciftCount = document.getElementById("cift-count");
+  const tabu = document.getElementById("card-tabu");
+  const imposter = document.getElementById("card-imposter");
 
-  if (mode === 'tek') {
-    telepati.style.display = 'none';
-    isimSehir.style.display = 'none';
-    tekCount.classList.remove('hidden');
+  // Sadece tek modunda imposter kartını göster, çiftte tamamen DOM'dan kaldır
+  if (imposter) {
+    if (mode === "tek") {
+      imposter.style.display = "";
+      imposter.classList.remove("hidden");
+    } else {
+      imposter.style.display = "none";
+    }
+  }
+
+  const tekCount = document.getElementById("tek-count");
+
+  if (mode === "tek") {
+    telepati.style.display = "none";
+    isimSehir.style.display = "none";
+    tabu.style.display = "none";
+    ciftCount.style.display = "none";
+    tekCount.style.display = "";
   } else {
-    telepati.style.display = '';
-    isimSehir.style.display = '';
-    tekCount.classList.add('hidden');
+    telepati.style.display = "";
+    isimSehir.style.display = "";
+    tabu.style.display = "";
+    ciftCount.style.display = "";
+    tekCount.style.display = "none";
   }
 }
 
@@ -48,19 +108,60 @@ function selectGame(type) {
   if (!pendingRoomData) return;
   pendingRoomData.gameType = type;
   pendingRoomData.gameMode = selectedMode;
-  if (selectedMode === 'tek') {
-    pendingRoomData.playerCount = document.getElementById('tekPlayerCountSelect').value;
+  if (selectedMode === "tek") {
+    pendingRoomData.maxPlayers =
+      document.getElementById("tekCountSelect").value;
+  } else {
+    pendingRoomData.coupleCount =
+      document.getElementById("ciftCountSelect").value;
   }
+
+  // Oyun adını göster
+  const names = {
+    telepati: "Telepati",
+    isimSehir: "İsim Şehir",
+    pictionary: "Resim Çiz",
+    tabu: "Tabu",
+  };
+  document.getElementById("settings-game-title").innerText =
+    names[type] + " - Ayarlar";
+
+  // Resim Çiz için süre sabit 45sn, gizle
+  const timeInput = document.getElementById("roundTimeInput");
+  const timeLabel = timeInput.parentElement;
+  if (type === "pictionary") {
+    timeLabel.style.display = "none";
+    timeInput.value = 45;
+  } else if (type === "tabu") {
+    timeLabel.style.display = "";
+    timeInput.value = 60;
+  } else if (type === "imposter") {
+    timeLabel.style.display = "";
+    timeInput.value = 60;
+  } else {
+    timeLabel.style.display = "";
+    timeInput.value = 10;
+  }
+
+  showScreen("gameSettings");
+}
+
+function confirmGameSettings() {
+  if (!pendingRoomData) return;
+  pendingRoomData.roundCount = document.getElementById("roundCountInput").value;
+  pendingRoomData.roundTime = document.getElementById("roundTimeInput").value;
   socket.emit("createRoom", pendingRoomData);
   pendingRoomData = null;
 }
 
 function joinRoom() {
   const username = document.getElementById("username").value;
-  const gender = document.querySelector('input[name="gender"]:checked').value;
+  const genderEl = document.querySelector('input[name="gender"]:checked');
   const code = document.getElementById("roomCodeInput").value;
-  if (!username) return alert("İsim giriniz!");
-  socket.emit("joinRoom", { roomId: code, username, gender });
+  if (!username) return showBearBubble("İsmini yazmadan nereye :)", "name");
+  if (!genderEl) return showBearBubble("Cinsiyetini seçsene :)", "gender");
+  hideBearBubble();
+  socket.emit("joinRoom", { roomId: code, username, gender: genderEl.value });
 }
 
 function switchTab(mode) {
@@ -81,7 +182,7 @@ function copyRoomCode() {
   navigator.clipboard.writeText(code).then(() => {
     const btn = document.querySelector(".copy-btn");
     btn.innerText = "✅";
-    setTimeout(() => btn.innerText = "📋", 1500);
+    setTimeout(() => (btn.innerText = "📋"), 1500);
   });
 }
 
@@ -127,6 +228,10 @@ function startTimer(sec, timerElId) {
           sendIsimSehirWord(true);
         } else if (window._currentGameType === "pictionary") {
           // Server handles timeout
+        } else if (window._currentGameType === "tabu") {
+          // Server handles timeout
+        } else if (window._currentGameType === "imposter") {
+          sendImposterWord(true);
         } else {
           sendWord(true);
         }
@@ -180,9 +285,9 @@ function animateLetter(targetLetter, callback) {
 
 function updateCategoryTabs(activeCategory) {
   const cats = ["isim", "sehir", "hayvan"];
-  const map = { "İSİM": "isim", "ŞEHİR": "sehir", "HAYVAN": "hayvan" };
+  const map = { İSİM: "isim", ŞEHİR: "sehir", HAYVAN: "hayvan" };
   const key = map[activeCategory] || activeCategory;
-  cats.forEach(c => {
+  cats.forEach((c) => {
     const tab = document.getElementById("cat-" + c);
     tab.classList.toggle("cat-active", c === key);
   });
@@ -220,14 +325,17 @@ socket.on("updateLobby", (data) => {
 
   if (data.gameMode === "tek") {
     // Tek mod: oyuncu listesi
-    const playerSlots = data.players.map(p => {
-      const icon = p.gender === "female" ? "👩" : "👨";
-      const cls = p.gender === "female" ? "slot-female" : "slot-male";
-      const hostBadge = p.id === data.hostId ? ' <span class="host-badge">KURUCU</span>' : '';
-      return `<div class="slot filled ${cls}">${icon} ${p.username}${hostBadge}</div>`;
-    }).join("");
+    const playerSlots = data.players
+      .map((p) => {
+        const icon = p.gender === "female" ? "👩" : "👨";
+        const cls = p.gender === "female" ? "slot-female" : "slot-male";
+        const hostBadge =
+          p.id === data.hostId ? ' <span class="host-badge">KURUCU</span>' : "";
+        return `<div class="slot filled ${cls}">${icon} ${p.username}${hostBadge}</div>`;
+      })
+      .join("");
     div.innerHTML = `<div class="team-card" style="grid-column:1/-1;">
-      <div class="team-title">Oyuncular (${data.players.length}/${data.maxPlayers})</div>
+      <div class="team-title">Oyuncular (${data.players.length})</div>
       <div class="tek-players-list">${playerSlots}</div>
     </div>`;
   } else {
@@ -244,9 +352,10 @@ socket.on("updateLobby", (data) => {
   }
 
   // Seyirciler
-  const specTitle = document.querySelector('.spectators-area h3');
+  const specTitle = document.querySelector(".spectators-area h3");
   if (specTitle) {
-    specTitle.innerText = data.gameMode === "tek" ? "İzleyiciler" : "Lobidekiler (Takım Seçin)";
+    specTitle.innerText =
+      data.gameMode === "tek" ? "İzleyiciler" : "Lobidekiler (Takım Seçin)";
   }
   const specs = data.spectators
     .map((p) => {
@@ -262,7 +371,8 @@ function renderSlot(p, i, slot, hostId) {
   if (p) {
     const genderClass = p.gender === "female" ? "slot-female" : "slot-male";
     const icon = p.gender === "female" ? "👩" : "👨";
-    const hostBadge = p.id === hostId ? ' <span class="host-badge">KURUCU</span>' : '';
+    const hostBadge =
+      p.id === hostId ? ' <span class="host-badge">KURUCU</span>' : "";
     return `<div class="slot filled ${genderClass}">${icon} ${p.username}${hostBadge}</div>`;
   }
   return `<div class="slot empty" onclick="joinTeamSlot(${i}, '${slot}')">+ KATIL</div>`;
@@ -356,14 +466,16 @@ socket.on("partnerSubmitted", () => {
 socket.on("revealOneMove", (data) => {
   if (!amIPlaying) {
     if (window._currentGameType === "isimSehir") {
-      const el = data.slot === "p1"
-        ? document.getElementById("is-spectator-left")
-        : document.getElementById("is-spectator-right");
+      const el =
+        data.slot === "p1"
+          ? document.getElementById("is-spectator-left")
+          : document.getElementById("is-spectator-right");
       el.innerText = data.word;
     } else {
-      const el = data.slot === "p1"
-        ? document.getElementById("spectator-view-left")
-        : document.getElementById("spectator-view-right");
+      const el =
+        data.slot === "p1"
+          ? document.getElementById("spectator-view-left")
+          : document.getElementById("spectator-view-right");
       el.innerText = data.word;
     }
   }
@@ -438,7 +550,8 @@ socket.on("isimSehirStart", (data) => {
   window._totalRounds = data.roundCount || 5;
 
   document.getElementById("scoreboard-panel").style.display = "block";
-  document.getElementById("score-note-text").innerText = "En çok puan kazanır! 🏆";
+  document.getElementById("score-note-text").innerText =
+    "En çok puan kazanır! 🏆";
   document.getElementById("is-round-display").innerText =
     `Tur: 1 / ${window._totalRounds}`;
 
@@ -446,21 +559,29 @@ socket.on("isimSehirStart", (data) => {
   if (data.firstPair) {
     const p1El = document.getElementById("is-left-panel");
     const p2El = document.getElementById("is-right-panel");
-    document.getElementById("isLeftName").innerText = data.firstPair.p1.username;
-    document.getElementById("isRightName").innerText = data.firstPair.p2.username;
+    document.getElementById("isLeftName").innerText =
+      data.firstPair.p1.username;
+    document.getElementById("isRightName").innerText =
+      data.firstPair.p2.username;
     p1El.className = `game-panel panel-${data.firstPair.p1.gender}`;
     p2El.className = `game-panel panel-${data.firstPair.p2.gender}`;
 
     const iamP2 = myPlayerId === data.firstPair.p2.id;
     if (iamP2) {
-      document.getElementById("isLeftName").innerText = data.firstPair.p2.username;
-      document.getElementById("isRightName").innerText = data.firstPair.p1.username;
+      document.getElementById("isLeftName").innerText =
+        data.firstPair.p2.username;
+      document.getElementById("isRightName").innerText =
+        data.firstPair.p1.username;
       p1El.className = `game-panel panel-${data.firstPair.p2.gender}`;
       p2El.className = `game-panel panel-${data.firstPair.p1.gender}`;
     }
   }
 
-  Swal.fire({ title: "İsim Şehir Başlıyor!", timer: 1500, showConfirmButton: false });
+  Swal.fire({
+    title: "İsim Şehir Başlıyor!",
+    timer: 1500,
+    showConfirmButton: false,
+  });
 
   document.getElementById("isWordInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendIsimSehirWord();
@@ -491,7 +612,7 @@ socket.on("letterSelected", (data) => {
 
   // Input'a yazılan harfi kontrol et
   function onLetterInput(e) {
-    const typed = inp.value.toUpperCase();
+    const typed = inp.value.toLocaleUpperCase("tr-TR");
     if (!letterAnimationDone) return;
 
     if (typed === currentTargetLetter) {
@@ -605,11 +726,16 @@ socket.on("isimSehirGameOver", (msg) => {
 let picIsDrawer = false;
 let picDrawing = false;
 let picLastEmit = 0;
-let picEraserOn = false;
 let picColor = "#000000";
-let picThickness = 4;
 let picCtx = null;
-let picLastX = 0, picLastY = 0;
+let picLastX = 0,
+  picLastY = 0;
+let picLastEmitX = 0,
+  picLastEmitY = 0;
+let picCurrentTool = "pen";
+let picShapeStartX = 0,
+  picShapeStartY = 0;
+let picSnapshotData = null; // canvas snapshot for shape preview
 
 function initPictionaryCanvas() {
   const canvas = document.getElementById("pic-canvas");
@@ -618,13 +744,24 @@ function initPictionaryCanvas() {
   picCtx.lineJoin = "round";
 
   // Color picker
-  document.querySelectorAll(".pic-color").forEach(el => {
+  document.querySelectorAll(".pic-color").forEach((el) => {
     el.addEventListener("click", () => {
-      document.querySelectorAll(".pic-color").forEach(c => c.classList.remove("active"));
+      document
+        .querySelectorAll(".pic-color")
+        .forEach((c) => c.classList.remove("active"));
       el.classList.add("active");
       picColor = el.dataset.color;
-      picEraserOn = false;
-      document.getElementById("pic-eraser-btn").classList.remove("active");
+      if (picCurrentTool === "eraser") {
+        selectTool("pen");
+      }
+    });
+  });
+
+  // Tool picker
+  document.querySelectorAll(".pic-tool-icon[data-tool]").forEach((el) => {
+    if (el.dataset.tool === "clear") return;
+    el.addEventListener("click", () => {
+      selectTool(el.dataset.tool);
     });
   });
 
@@ -634,9 +771,15 @@ function initPictionaryCanvas() {
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     if (e.touches) {
-      return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
     }
-    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
   };
 
   const startDraw = (e) => {
@@ -646,26 +789,130 @@ function initPictionaryCanvas() {
     const pos = getPos(e);
     picLastX = pos.x;
     picLastY = pos.y;
+    picLastEmitX = pos.x;
+    picLastEmitY = pos.y;
+
+    if (
+      picCurrentTool === "square" ||
+      picCurrentTool === "rectangle" ||
+      picCurrentTool === "triangle" ||
+      picCurrentTool === "circle"
+    ) {
+      picShapeStartX = pos.x;
+      picShapeStartY = pos.y;
+      picSnapshotData = picCtx.getImageData(0, 0, canvas.width, canvas.height);
+    }
   };
+
   const moveDraw = (e) => {
     if (!picIsDrawer || !picDrawing) return;
     e.preventDefault();
     const pos = getPos(e);
-    const color = picEraserOn ? "#ffffff" : picColor;
+    const color = picCurrentTool === "eraser" ? "#ffffff" : picColor;
     const thickness = parseInt(document.getElementById("pic-thickness").value);
 
-    drawLine(picLastX, picLastY, pos.x, pos.y, color, thickness);
+    if (picCurrentTool === "pen" || picCurrentTool === "eraser") {
+      drawLine(picLastX, picLastY, pos.x, pos.y, color, thickness);
 
-    const now = Date.now();
-    if (now - picLastEmit > 50) {
-      socket.emit("drawData", { roomId: currentRoom, x1: picLastX, y1: picLastY, x2: pos.x, y2: pos.y, color, thickness });
-      picLastEmit = now;
+      const now = Date.now();
+      if (now - picLastEmit > 30) {
+        socket.emit("drawData", {
+          roomId: currentRoom,
+          x1: picLastEmitX,
+          y1: picLastEmitY,
+          x2: pos.x,
+          y2: pos.y,
+          color,
+          thickness,
+        });
+        picLastEmitX = pos.x;
+        picLastEmitY = pos.y;
+        picLastEmit = now;
+      }
+
+      picLastX = pos.x;
+      picLastY = pos.y;
+    } else {
+      // Shape preview
+      if (picSnapshotData) {
+        picCtx.putImageData(picSnapshotData, 0, 0);
+      }
+      drawShapePreview(
+        picShapeStartX,
+        picShapeStartY,
+        pos.x,
+        pos.y,
+        color,
+        thickness,
+      );
+    }
+  };
+
+  const endDraw = (e) => {
+    if (!picIsDrawer || !picDrawing) {
+      picDrawing = false;
+      return;
     }
 
-    picLastX = pos.x;
-    picLastY = pos.y;
+    if (
+      picCurrentTool === "square" ||
+      picCurrentTool === "rectangle" ||
+      picCurrentTool === "triangle" ||
+      picCurrentTool === "circle"
+    ) {
+      const pos = e.changedTouches
+        ? { x: 0, y: 0 }
+        : e.type === "mouseleave"
+          ? { x: picLastX, y: picLastY }
+          : null;
+      let endX, endY;
+      if (e.changedTouches) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        endX = (e.changedTouches[0].clientX - rect.left) * scaleX;
+        endY = (e.changedTouches[0].clientY - rect.top) * scaleY;
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        endX = (e.clientX - rect.left) * scaleX;
+        endY = (e.clientY - rect.top) * scaleY;
+      }
+
+      const color = picColor;
+      const thickness = parseInt(
+        document.getElementById("pic-thickness").value,
+      );
+
+      if (picSnapshotData) {
+        picCtx.putImageData(picSnapshotData, 0, 0);
+      }
+      drawShape(
+        picCurrentTool,
+        picShapeStartX,
+        picShapeStartY,
+        endX,
+        endY,
+        color,
+        thickness,
+      );
+      socket.emit("drawData", {
+        roomId: currentRoom,
+        type: "shape",
+        shape: picCurrentTool,
+        x1: picShapeStartX,
+        y1: picShapeStartY,
+        x2: endX,
+        y2: endY,
+        color,
+        thickness,
+      });
+      picSnapshotData = null;
+    }
+
+    picDrawing = false;
   };
-  const endDraw = () => { picDrawing = false; };
 
   canvas.addEventListener("mousedown", startDraw);
   canvas.addEventListener("mousemove", moveDraw);
@@ -674,6 +921,14 @@ function initPictionaryCanvas() {
   canvas.addEventListener("touchstart", startDraw, { passive: false });
   canvas.addEventListener("touchmove", moveDraw, { passive: false });
   canvas.addEventListener("touchend", endDraw);
+}
+
+function selectTool(tool) {
+  picCurrentTool = tool;
+  document.querySelectorAll(".pic-tool-icon[data-tool]").forEach((el) => {
+    if (el.dataset.tool === "clear") return;
+    el.classList.toggle("active", el.dataset.tool === tool);
+  });
 }
 
 function drawLine(x1, y1, x2, y2, color, thickness) {
@@ -685,9 +940,46 @@ function drawLine(x1, y1, x2, y2, color, thickness) {
   picCtx.stroke();
 }
 
-function toggleEraser() {
-  picEraserOn = !picEraserOn;
-  document.getElementById("pic-eraser-btn").classList.toggle("active", picEraserOn);
+function drawShapePreview(x1, y1, x2, y2, color, thickness) {
+  picCtx.strokeStyle = color;
+  picCtx.lineWidth = thickness;
+  picCtx.setLineDash([6, 4]);
+  drawShapePath(picCurrentTool, x1, y1, x2, y2);
+  picCtx.setLineDash([]);
+}
+
+function drawShape(shape, x1, y1, x2, y2, color, thickness) {
+  picCtx.strokeStyle = color;
+  picCtx.lineWidth = thickness;
+  picCtx.setLineDash([]);
+  drawShapePath(shape, x1, y1, x2, y2);
+}
+
+function drawShapePath(shape, x1, y1, x2, y2) {
+  picCtx.beginPath();
+  if (shape === "square") {
+    const size = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+    const sx = x2 > x1 ? x1 : x1 - size;
+    const sy = y2 > y1 ? y1 : y1 - size;
+    picCtx.rect(sx, sy, size, size);
+  } else if (shape === "rectangle") {
+    const w = x2 - x1;
+    const h = y2 - y1;
+    picCtx.rect(x1, y1, w, h);
+  } else if (shape === "triangle") {
+    const midX = (x1 + x2) / 2;
+    picCtx.moveTo(midX, y1);
+    picCtx.lineTo(x2, y2);
+    picCtx.lineTo(x1, y2);
+    picCtx.closePath();
+  } else if (shape === "circle") {
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2;
+    const rx = Math.abs(x2 - x1) / 2;
+    const ry = Math.abs(y2 - y1) / 2;
+    picCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  }
+  picCtx.stroke();
 }
 
 function clearCanvas() {
@@ -715,20 +1007,29 @@ socket.on("pictionaryStart", (data) => {
   window._totalRounds = data.roundCount || 5;
 
   document.getElementById("scoreboard-panel").style.display = "block";
-  document.getElementById("score-note-text").innerText = "İlk bilene en çok puan! 🏆";
-  document.getElementById("pic-round-display").innerText = `Tur: 1 / ${window._totalRounds}`;
+  document.getElementById("score-note-text").innerText =
+    "İlk bilene en çok puan! 🏆";
+  document.getElementById("pic-round-display").innerText =
+    `Tur: 1 / ${window._totalRounds}`;
 
   initPictionaryCanvas();
 
-  Swal.fire({ title: "Resim Çiz Başlıyor!", timer: 1500, showConfirmButton: false });
-
-  document.getElementById("pic-guess-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendPictionaryGuess();
+  Swal.fire({
+    title: "Resim Çiz Başlıyor!",
+    timer: 1500,
+    showConfirmButton: false,
   });
+
+  document
+    .getElementById("pic-guess-input")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendPictionaryGuess();
+    });
 });
 
 socket.on("pictionaryRound", (data) => {
-  document.getElementById("pic-round-display").innerText = `Tur: ${data.round} / ${data.totalRounds}`;
+  document.getElementById("pic-round-display").innerText =
+    `Tur: ${data.round} / ${data.totalRounds}`;
   document.getElementById("pic-game-log").innerHTML = "";
 
   const canvas = document.getElementById("pic-canvas");
@@ -742,8 +1043,12 @@ socket.on("pictionaryRound", (data) => {
 
   const infoBar = document.getElementById("pic-turn-info");
   const wordDisplay = document.getElementById("pic-word-display");
-  const toolbar = document.getElementById("pic-toolbar");
+  const leftTools = document.getElementById("pic-left-tools");
+  const colorBar = document.getElementById("pic-color-bar");
   const guessArea = document.getElementById("pic-guess-area");
+
+  // Reset tool
+  selectTool("pen");
 
   if (data.gameMode === "tek") {
     // TEK MOD
@@ -755,14 +1060,16 @@ socket.on("pictionaryRound", (data) => {
       infoBar.style.backgroundColor = "#e67e22";
       wordDisplay.classList.remove("hidden");
       wordDisplay.innerText = `Kelime: ${data.word}`;
-      toolbar.classList.remove("hidden");
+      leftTools.classList.remove("hidden");
+      colorBar.classList.remove("hidden");
       guessArea.classList.add("hidden");
       canvas.style.cursor = "crosshair";
     } else if (amGuesser) {
       infoBar.innerText = `TAHMİN ET! ${data.drawerName} çiziyor`;
       infoBar.style.backgroundColor = "#27ae60";
       wordDisplay.classList.add("hidden");
-      toolbar.classList.add("hidden");
+      leftTools.classList.add("hidden");
+      colorBar.classList.add("hidden");
       guessArea.classList.remove("hidden");
       canvas.style.cursor = "default";
       const inp = document.getElementById("pic-guess-input");
@@ -774,7 +1081,8 @@ socket.on("pictionaryRound", (data) => {
       infoBar.innerText = `${data.drawerName} çiziyor`;
       infoBar.style.backgroundColor = "#34495e";
       wordDisplay.classList.add("hidden");
-      toolbar.classList.add("hidden");
+      leftTools.classList.add("hidden");
+      colorBar.classList.add("hidden");
       guessArea.classList.add("hidden");
       canvas.style.cursor = "default";
     }
@@ -788,14 +1096,16 @@ socket.on("pictionaryRound", (data) => {
       infoBar.style.backgroundColor = "#e67e22";
       wordDisplay.classList.remove("hidden");
       wordDisplay.innerText = `Kelime: ${data.word}`;
-      toolbar.classList.remove("hidden");
+      leftTools.classList.remove("hidden");
+      colorBar.classList.remove("hidden");
       guessArea.classList.add("hidden");
       canvas.style.cursor = "crosshair";
     } else if (amGuesser) {
       infoBar.innerText = `TAHMİN ET! ${data.drawerName} çiziyor`;
       infoBar.style.backgroundColor = "#27ae60";
       wordDisplay.classList.add("hidden");
-      toolbar.classList.add("hidden");
+      leftTools.classList.add("hidden");
+      colorBar.classList.add("hidden");
       guessArea.classList.remove("hidden");
       canvas.style.cursor = "default";
       const inp = document.getElementById("pic-guess-input");
@@ -807,7 +1117,8 @@ socket.on("pictionaryRound", (data) => {
       infoBar.innerText = `${data.drawerName} çiziyor, ${data.guesserName} tahmin ediyor`;
       infoBar.style.backgroundColor = "#34495e";
       wordDisplay.classList.add("hidden");
-      toolbar.classList.add("hidden");
+      leftTools.classList.add("hidden");
+      colorBar.classList.add("hidden");
       guessArea.classList.add("hidden");
       canvas.style.cursor = "default";
     }
@@ -832,7 +1143,19 @@ socket.on("drawData", (data) => {
     picCtx.lineCap = "round";
     picCtx.lineJoin = "round";
   }
-  drawLine(data.x1, data.y1, data.x2, data.y2, data.color, data.thickness);
+  if (data.type === "shape") {
+    drawShape(
+      data.shape,
+      data.x1,
+      data.y1,
+      data.x2,
+      data.y2,
+      data.color,
+      data.thickness,
+    );
+  } else {
+    drawLine(data.x1, data.y1, data.x2, data.y2, data.color, data.thickness);
+  }
 });
 
 socket.on("pictionaryWrongGuess", (data) => {
@@ -859,7 +1182,13 @@ socket.on("pictionaryCorrect", (data) => {
     if (data.guesserId === myPlayerId) {
       document.getElementById("pic-guess-input").disabled = true;
       document.getElementById("pic-guess-btn").disabled = true;
-      Swal.fire({ title: "Doğru!", text: `+${data.points} puan`, icon: "success", timer: 1500, showConfirmButton: false });
+      Swal.fire({
+        title: "Doğru!",
+        text: `+${data.points} puan`,
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
     }
     // Timer durmasın, tur devam ediyor
   } else {
@@ -867,7 +1196,13 @@ socket.on("pictionaryCorrect", (data) => {
     if (amIPlaying) {
       const guessArea = document.getElementById("pic-guess-area");
       guessArea.classList.add("hidden");
-      Swal.fire({ title: "Doğru!", text: `+${data.points} puan`, icon: "success", timer: 1500, showConfirmButton: false });
+      Swal.fire({
+        title: "Doğru!",
+        text: `+${data.points} puan`,
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
     }
   }
 });
@@ -878,12 +1213,212 @@ socket.on("pictionaryRoundEnd", (data) => {
   const wordDisplay = document.getElementById("pic-word-display");
   wordDisplay.classList.remove("hidden");
   wordDisplay.innerText = `Cevap: ${data.word}`;
-  document.getElementById("pic-toolbar").classList.add("hidden");
+  document.getElementById("pic-left-tools").classList.add("hidden");
+  document.getElementById("pic-color-bar").classList.add("hidden");
   document.getElementById("pic-guess-area").classList.add("hidden");
   picIsDrawer = false;
 });
 
 socket.on("pictionaryGameOver", (msg) => {
+  Swal.fire({ title: "BİTTİ", text: msg });
+});
+
+// --- TABU ---
+let tabuRole = null; // "describer", "guesser", "spectator"
+
+function sendTabuClue() {
+  const inp = document.getElementById("tabu-clue-input");
+  const val = inp.value.trim();
+  if (!val) return;
+  socket.emit("tabuClue", { roomId: currentRoom, clue: val });
+  inp.value = "";
+}
+
+function sendTabuGuess() {
+  const inp = document.getElementById("tabu-guess-input");
+  const val = inp.value.trim();
+  if (!val) return;
+  socket.emit("tabuGuess", { roomId: currentRoom, guess: val });
+  inp.value = "";
+}
+
+function sendTabuPass() {
+  socket.emit("tabuPass", { roomId: currentRoom });
+}
+
+socket.on("tabuStart", (data) => {
+  window._currentGameType = "tabu";
+  showScreen("tabu");
+  window._roundTime = data.roundTime || 60;
+  window._totalRounds = data.roundCount || 5;
+
+  document.getElementById("scoreboard-panel").style.display = "block";
+  document.getElementById("score-note-text").innerText =
+    "En çok kelime bilen kazanır! 🏆";
+  document.getElementById("tabu-round-display").innerText =
+    `Tur: 1 / ${window._totalRounds}`;
+
+  Swal.fire({ title: "Tabu Başlıyor!", timer: 1500, showConfirmButton: false });
+
+  document
+    .getElementById("tabu-clue-input")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendTabuClue();
+    });
+  document
+    .getElementById("tabu-guess-input")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendTabuGuess();
+    });
+});
+
+socket.on("tabuTurn", (data) => {
+  document.getElementById("tabu-round-display").innerText =
+    `Tur: ${data.currentRound} / ${data.totalRounds}`;
+  document.getElementById("tabu-chat").innerHTML = "";
+  document.getElementById("tabu-game-log").innerHTML = "";
+
+  const infoBar = document.getElementById("tabu-turn-info");
+  const cardEl = document.getElementById("tabu-card");
+  const clueArea = document.getElementById("tabu-clue-area");
+  const guessArea = document.getElementById("tabu-guess-area");
+  const alertEl = document.getElementById("tabu-forbidden-alert");
+  alertEl.classList.add("hidden");
+
+  const amDescriber = myPlayerId === data.describer.id;
+  const amGuesser = myPlayerId === data.guesser.id;
+  amIPlaying = amDescriber || amGuesser;
+
+  if (amDescriber) {
+    tabuRole = "describer";
+    infoBar.innerText = `ANLAT! ${data.guesser.username} tahmin edecek`;
+    infoBar.style.backgroundColor = "#e67e22";
+    cardEl.classList.remove("hidden");
+    clueArea.classList.remove("hidden");
+    guessArea.classList.add("hidden");
+    const inp = document.getElementById("tabu-clue-input");
+    inp.disabled = false;
+    document.getElementById("tabu-clue-btn").disabled = false;
+    inp.value = "";
+    inp.focus();
+  } else if (amGuesser) {
+    tabuRole = "guesser";
+    infoBar.innerText = `TAHMİN ET! ${data.describer.username} anlatıyor`;
+    infoBar.style.backgroundColor = "#27ae60";
+    cardEl.classList.add("hidden");
+    clueArea.classList.add("hidden");
+    guessArea.classList.remove("hidden");
+    const inp = document.getElementById("tabu-guess-input");
+    inp.disabled = false;
+    document.getElementById("tabu-guess-btn").disabled = false;
+    inp.value = "";
+    inp.focus();
+  } else {
+    tabuRole = "spectator";
+    infoBar.innerText = `${data.describer.username} anlatıyor, ${data.guesser.username} tahmin ediyor`;
+    infoBar.style.backgroundColor = "#34495e";
+    cardEl.classList.remove("hidden");
+    clueArea.classList.add("hidden");
+    guessArea.classList.add("hidden");
+  }
+
+  startTimer(data.roundTime, "tabu-timer");
+});
+
+socket.on("tabuNewWord", (data) => {
+  // Only describer sees this
+  document.getElementById("tabu-main-word").innerText = data.word;
+  document.getElementById("tabu-f1").innerText = data.forbidden[0];
+  document.getElementById("tabu-f2").innerText = data.forbidden[1];
+  document.getElementById("tabu-f3").innerText = data.forbidden[2];
+  document.getElementById("tabu-f4").innerText = data.forbidden[3];
+  document.getElementById("tabu-f5").innerText = data.forbidden[4];
+});
+
+socket.on("tabuNewRound", () => {
+  // Clear chat for new word
+  document.getElementById("tabu-chat").innerHTML = "";
+});
+
+socket.on("tabuClue", (data) => {
+  const chat = document.getElementById("tabu-chat");
+  const div = document.createElement("div");
+  div.className = "tabu-clue-item clue";
+  div.innerText = `💡 ${data.describerName}: ${data.clue}`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+});
+
+socket.on("tabuGuessMsg", (data) => {
+  const chat = document.getElementById("tabu-chat");
+  const div = document.createElement("div");
+  div.className = "tabu-clue-item guess";
+  div.innerText = `🤔 ${data.guesserName}: ${data.guess}`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+});
+
+socket.on("tabuCorrect", (data) => {
+  const chat = document.getElementById("tabu-chat");
+  const div = document.createElement("div");
+  div.className = "tabu-clue-item guess correct";
+  div.innerText = `✅ DOĞRU! "${data.word}" - ${data.teamName} (${data.score} puan)`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+
+  const logDiv = document.createElement("div");
+  logDiv.className = "log-item log-success";
+  logDiv.innerHTML = `${data.teamName}: "${data.word}" ✅ +1`;
+  document.getElementById("tabu-game-log").prepend(logDiv);
+
+  if (amIPlaying) {
+    Swal.fire({
+      title: "DOĞRU!",
+      icon: "success",
+      timer: 800,
+      showConfirmButton: false,
+    });
+  }
+});
+
+socket.on("tabuForbidden", (data) => {
+  const alertEl = document.getElementById("tabu-forbidden-alert");
+  alertEl.innerText = `YASAKLI KELİME! 🚫 "${data.forbiddenWord}"`;
+  alertEl.classList.remove("hidden");
+  setTimeout(() => alertEl.classList.add("hidden"), 2500);
+
+  const chat = document.getElementById("tabu-chat");
+  const div = document.createElement("div");
+  div.className = "tabu-clue-item system";
+  div.innerText = `🚫 ${data.describerName} yasaklı kelime kullandı: "${data.forbiddenWord}" - Kelime geçildi!`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+});
+
+socket.on("tabuPassed", (data) => {
+  const chat = document.getElementById("tabu-chat");
+  const div = document.createElement("div");
+  div.className = "tabu-clue-item system";
+  div.innerText = `⏭ PAS - "${data.word}" geçildi`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+});
+
+socket.on("tabuTurnEnd", (data) => {
+  clearInterval(timerInterval);
+  const chat = document.getElementById("tabu-chat");
+  const div = document.createElement("div");
+  div.className = "tabu-clue-item system";
+  div.innerText = `⏰ Süre doldu! ${data.teamName}: ${data.score} puan`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+
+  document.getElementById("tabu-card").classList.add("hidden");
+  document.getElementById("tabu-clue-area").classList.add("hidden");
+  document.getElementById("tabu-guess-area").classList.add("hidden");
+});
+
+socket.on("tabuGameOver", (msg) => {
   Swal.fire({ title: "BİTTİ", text: msg });
 });
 
@@ -893,10 +1428,275 @@ const screens = {
   waiting: document.getElementById("waiting-screen"),
   game: document.getElementById("game-screen"),
   gameSelect: document.getElementById("game-select-screen"),
+  gameSettings: document.getElementById("game-settings-screen"),
   isimSehir: document.getElementById("isimSehir-screen"),
   pictionary: document.getElementById("pictionary-screen"),
+  tabu: document.getElementById("tabu-screen"),
+  imposter: document.getElementById("imposter-screen"),
 };
 function showScreen(name) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[name].classList.add("active");
 }
+
+// --- İMPOSTOR ---
+let imposterIsMe = false;
+
+function sendImposterWord(auto) {
+  const inp = document.getElementById("imposterWordInput");
+  let val = inp.value;
+  if (auto && !val) val = "⏰";
+  if (val) {
+    socket.emit("submitImposterWord", { roomId: currentRoom, word: val });
+    inp.value = "";
+    inp.disabled = true;
+    document.getElementById("imposterSendBtn").disabled = true;
+    clearInterval(timerInterval);
+  }
+}
+
+function sendImposterVote(playerId) {
+  socket.emit("submitImposterVote", {
+    roomId: currentRoom,
+    votedPlayerId: playerId,
+  });
+  document.querySelectorAll(".imposter-vote-btn").forEach((btn) => {
+    btn.disabled = true;
+    if (btn.dataset.pid === playerId) {
+      btn.classList.add("voted");
+    }
+  });
+}
+
+socket.on("imposterStart", (data) => {
+  window._currentGameType = "imposter";
+  showScreen("imposter");
+  window._roundTime = data.roundTime || 60;
+  window._totalRounds = data.roundCount || 5;
+  document.getElementById("scoreboard-panel").style.display = "none";
+  document.getElementById("imposter-round-display").innerText =
+    `Tur: 1 / ${window._totalRounds}`;
+
+  Swal.fire({
+    title: "Imposter Başlıyor!",
+    timer: 1500,
+    showConfirmButton: false,
+  });
+
+  document
+    .getElementById("imposterWordInput")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendImposterWord();
+    });
+});
+
+socket.on("imposterRound", (data) => {
+  amIPlaying = true;
+  imposterIsMe = data.isImposter;
+  document.getElementById("imposter-round-display").innerText =
+    `Tur: ${data.currentRound} / ${data.totalRounds}`;
+  document.getElementById("imposter-game-log").innerHTML = "";
+  document.getElementById("imposter-answers").classList.add("hidden");
+  document.getElementById("imposter-answers").innerHTML = "";
+  document.getElementById("imposter-vote-area").classList.add("hidden");
+
+  const inp = document.getElementById("imposterWordInput");
+  inp.disabled = false;
+  inp.value = "";
+  document.getElementById("imposterSendBtn").disabled = false;
+  document.getElementById("imposter-input-area").classList.remove("hidden");
+  document.getElementById("imposter-submitted-list").classList.add("hidden");
+  document.getElementById("imposter-submitted-list").innerHTML = "";
+
+  const phaseLabel = document.getElementById("imposter-phase-label");
+  phaseLabel.classList.remove("hidden");
+  phaseLabel.innerText = "1. Yazma Turu";
+
+  const hintEl = document.getElementById("imposter-hint");
+
+  if (data.isImposter) {
+    document.getElementById("imposter-turn-info").innerText =
+      "Sen IMPOSTOR'sun! Yakalanma! 🕵️";
+    document.getElementById("imposter-turn-info").style.backgroundColor =
+      "#e74c3c";
+    document.getElementById("imposter-screen").style.background =
+      "linear-gradient(135deg, #e74c3c22, #c0392b22)";
+    document.getElementById("imposter-title").innerText = "🕵️ IMPOSTOR";
+    document.getElementById("imposter-main-word").innerText = "???";
+    hintEl.classList.remove("hidden");
+    hintEl.innerText = `İpucu: ${data.hint}`;
+  } else {
+    document.getElementById("imposter-turn-info").innerText =
+      "Kelimeyle ilgili bir şey yaz! 🔍";
+    document.getElementById("imposter-turn-info").style.backgroundColor =
+      "#27ae60";
+    document.getElementById("imposter-screen").style.background = "";
+    document.getElementById("imposter-title").innerText = "Kelime";
+    document.getElementById("imposter-main-word").innerText = data.word;
+    hintEl.classList.add("hidden");
+  }
+
+  inp.focus();
+  startTimer(data.roundTime, "imposter-timer");
+});
+
+socket.on("imposterPlayerSubmitted", (data) => {
+  const list = document.getElementById("imposter-submitted-list");
+  list.classList.remove("hidden");
+  const span = document.createElement("div");
+  span.className = "imposter-submitted-item";
+  span.innerText = `✅ ${data.username} yazdı`;
+  list.appendChild(span);
+});
+
+socket.on("imposterPhaseResults", (data) => {
+  clearInterval(timerInterval);
+  document.getElementById("imposter-input-area").classList.add("hidden");
+  document.getElementById("imposter-submitted-list").classList.add("hidden");
+  document.getElementById("imposter-timer").innerText = "";
+
+  const answersEl = document.getElementById("imposter-answers");
+  answersEl.classList.remove("hidden");
+
+  if (data.phase === "write1") {
+    answersEl.innerHTML = "<h4>1. Tur Cevapları</h4>";
+    data.results.forEach((r) => {
+      const div = document.createElement("div");
+      div.className = "imposter-answer-item";
+      div.innerText = `${r.username}: "${r.word}"`;
+      answersEl.appendChild(div);
+    });
+
+    document.getElementById("imposter-turn-info").innerText =
+      "Cevaplar açıklandı! 2. tur hazırlanıyor...";
+    document.getElementById("imposter-turn-info").style.backgroundColor =
+      "#8e44ad";
+  } else if (data.phase === "write2") {
+    answersEl.innerHTML = "<h4>1. Tur Cevapları</h4>";
+    data.results1.forEach((r) => {
+      const div = document.createElement("div");
+      div.className = "imposter-answer-item";
+      div.innerText = `${r.username}: "${r.word}"`;
+      answersEl.appendChild(div);
+    });
+    const h2 = document.createElement("h4");
+    h2.innerText = "2. Tur Cevapları";
+    h2.style.marginTop = "12px";
+    answersEl.appendChild(h2);
+    data.results2.forEach((r) => {
+      const div = document.createElement("div");
+      div.className = "imposter-answer-item";
+      div.innerText = `${r.username}: "${r.word}"`;
+      answersEl.appendChild(div);
+    });
+
+    document.getElementById("imposter-turn-info").innerText =
+      "Cevaplar açıklandı! Oylama hazırlanıyor...";
+    document.getElementById("imposter-turn-info").style.backgroundColor =
+      "#8e44ad";
+  }
+});
+
+socket.on("imposterPhase2Start", (data) => {
+  const phaseLabel = document.getElementById("imposter-phase-label");
+  phaseLabel.innerText = "2. Yazma Turu";
+
+  const inp = document.getElementById("imposterWordInput");
+  inp.disabled = false;
+  inp.value = "";
+  document.getElementById("imposterSendBtn").disabled = false;
+  document.getElementById("imposter-input-area").classList.remove("hidden");
+  document.getElementById("imposter-submitted-list").classList.add("hidden");
+  document.getElementById("imposter-submitted-list").innerHTML = "";
+
+  if (imposterIsMe) {
+    document.getElementById("imposter-turn-info").innerText =
+      "2. Tur - Tekrar yaz! Yakalanma! 🕵️";
+    document.getElementById("imposter-turn-info").style.backgroundColor =
+      "#e74c3c";
+  } else {
+    document.getElementById("imposter-turn-info").innerText =
+      "2. Tur - Tekrar bir şey yaz! 🔍";
+    document.getElementById("imposter-turn-info").style.backgroundColor =
+      "#27ae60";
+  }
+
+  inp.focus();
+  startTimer(data.roundTime, "imposter-timer");
+});
+
+socket.on("imposterVoteStart", (data) => {
+  document.getElementById("imposter-input-area").classList.add("hidden");
+  document.getElementById("imposter-submitted-list").classList.add("hidden");
+  document.getElementById("imposter-phase-label").innerText = "Oylama";
+  document.getElementById("imposter-timer").innerText = "";
+
+  document.getElementById("imposter-turn-info").innerText =
+    "Imposter kim? Oy ver! 🗳️";
+  document.getElementById("imposter-turn-info").style.backgroundColor =
+    "#e67e22";
+
+  const voteArea = document.getElementById("imposter-vote-area");
+  const voteList = document.getElementById("imposter-vote-list");
+  voteArea.classList.remove("hidden");
+  voteList.innerHTML = "";
+
+  data.players.forEach((p) => {
+    if (p.playerId === myPlayerId) return;
+    const btn = document.createElement("button");
+    btn.className = "imposter-vote-btn";
+    btn.dataset.pid = p.playerId;
+    btn.innerText = p.username;
+    btn.onclick = () => sendImposterVote(p.playerId);
+    voteList.appendChild(btn);
+  });
+});
+
+socket.on("imposterPlayerVoted", (data) => {
+  const list = document.getElementById("imposter-submitted-list");
+  list.classList.remove("hidden");
+  const span = document.createElement("div");
+  span.className = "imposter-submitted-item";
+  span.innerText = `🗳️ ${data.username} oy verdi`;
+  list.appendChild(span);
+});
+
+socket.on("imposterVoteResult", (data) => {
+  document.getElementById("imposter-vote-area").classList.add("hidden");
+  document.getElementById("imposter-submitted-list").classList.add("hidden");
+  document.getElementById("imposter-phase-label").classList.add("hidden");
+
+  const infoBar = document.getElementById("imposter-turn-info");
+  if (data.imposterCaught) {
+    infoBar.innerText = `Impostor yakalandı! 🎉 ${data.imposterName} impostor'du!`;
+    infoBar.style.backgroundColor = "#27ae60";
+  } else {
+    infoBar.innerText = `Impostor kazandı! 🕵️ ${data.imposterName} impostor'du!`;
+    infoBar.style.backgroundColor = "#e74c3c";
+  }
+
+  document.getElementById("imposter-title").innerText = "Sonuç";
+  document.getElementById("imposter-main-word").innerText = data.secretWord;
+  document.getElementById("imposter-hint").classList.add("hidden");
+  document.getElementById("imposter-screen").style.background = "";
+
+  const log = document.getElementById("imposter-game-log");
+  log.innerHTML = "";
+
+  data.voteDetails.forEach((v) => {
+    const div = document.createElement("div");
+    const badge = v.isImposter ? " 🕵️" : "";
+    const voteBadge = v.votes > 0 ? ` (${v.votes} oy)` : "";
+    div.className = v.isImposter ? "log-item log-fail" : "log-item log-success";
+    div.innerHTML = `${v.username}${badge} → ${v.votedFor}${voteBadge}`;
+    log.appendChild(div);
+  });
+
+  if (data.imposterCaught) {
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+  }
+});
+
+socket.on("imposterGameOver", (msg) => {
+  Swal.fire({ title: "BİTTİ", text: msg });
+});

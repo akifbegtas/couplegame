@@ -35,28 +35,53 @@
         <div class="card lobby-card">
           <h2>Giriş Yap</h2>
 
-          <input
-            type="text"
-            id="username"
-            placeholder="İsminiz"
-            maxlength="12"
-          />
+          <div class="username-row">
+            <div id="bear-hint" class="bear-hint">
+              <div id="bear-bubble" class="bear-bubble hidden">
+                İsmini yazmadan nereye :)
+              </div>
+              <div class="bear-face">
+                <div class="bear-ear bear-ear-l"></div>
+                <div class="bear-ear bear-ear-r"></div>
+                <div class="bear-eyes">
+                  <span class="bear-eye"></span>
+                  <span class="bear-eye"></span>
+                </div>
+                <div class="bear-nose"></div>
+                <div class="bear-mouth"></div>
+              </div>
+              <div class="bear-paw">&#128073;</div>
+            </div>
+            <input
+              type="text"
+              id="username"
+              placeholder="İsminiz"
+              maxlength="12"
+              oninput="hideBearBubble()"
+            />
+          </div>
           <div class="gender-selection">
             <label class="gender-option male"
-              ><input type="radio" name="gender" value="male" checked /><span
-                >Erkek 💙</span
-              ></label
+              ><input
+                type="radio"
+                name="gender"
+                value="male"
+                onchange="hideBearBubble()"
+              /><span>Erkek 💙</span></label
             >
             <label class="gender-option female"
-              ><input type="radio" name="gender" value="female" /><span
-                >Kadın 🩷</span
-              ></label
+              ><input
+                type="radio"
+                name="gender"
+                value="female"
+                onchange="hideBearBubble()"
+              /><span>Kadın 🩷</span></label
             >
           </div>
 
           <div class="tab-container">
             <button class="tab-btn active" onclick="switchTab('create')">
-              Oda Oluştur
+              Oyun Seç
             </button>
             <button class="tab-btn" onclick="switchTab('join')">
               Odaya Katıl
@@ -66,38 +91,8 @@
           <div class="forms-window">
             <div id="forms-slider" class="forms-slider">
               <div class="slide-section">
-                <label>Çift Sayısı:</label>
-                <select id="coupleCountSelect">
-                  <option value="2" selected>2 Çift (4 Kişi)</option>
-                  <option value="3">3 Çift (6 Kişi)</option>
-                  <option value="4">4 Çift (8 Kişi)</option>
-                </select>
-
-                <div class="row-inputs">
-                  <div class="half-input">
-                    <label>Tur</label>
-                    <input
-                      type="number"
-                      id="roundCountInput"
-                      min="1"
-                      max="20"
-                      value="5"
-                    />
-                  </div>
-                  <div class="half-input">
-                    <label>Süre (sn)</label>
-                    <input
-                      type="number"
-                      id="roundTimeInput"
-                      min="5"
-                      max="120"
-                      value="10"
-                    />
-                  </div>
-                </div>
-
                 <button class="btn-primary" onclick="createRoom()">
-                  Oda Oluştur
+                  Oyun Seç
                 </button>
               </div>
 
@@ -125,7 +120,9 @@
         <div class="waiting-header">
           <h2>
             Oda Kodu: <span id="displayRoomCode" class="highlight-code"></span>
-            <span class="copy-btn" onclick="copyRoomCode()" title="Kopyala">📋</span>
+            <span class="copy-btn" onclick="copyRoomCode()" title="Kopyala"
+              >📋</span
+            >
           </h2>
           <div id="host-controls" class="hidden">
             <button class="btn-start" onclick="startGame()">
@@ -148,36 +145,157 @@
         <div class="game-select-container">
           <h2 class="select-title">Oyun Seç</h2>
           <div class="mode-toggle-container" id="mode-toggle">
-            <button class="mode-btn active" id="mode-btn-cift" onclick="selectMode('cift')">Çift Modu</button>
-            <button class="mode-btn" id="mode-btn-tek" onclick="selectMode('tek')">Tek Modu</button>
+            <button
+              class="mode-btn active"
+              id="mode-btn-cift"
+              onclick="selectMode('cift')"
+            >
+              Çift Modu
+            </button>
+            <button
+              class="mode-btn"
+              id="mode-btn-tek"
+              onclick="selectMode('tek')"
+            >
+              Herkes Tek Modu
+            </button>
           </div>
-          <div id="tek-player-count" class="hidden" style="margin:10px auto;text-align:center;">
-            <label style="color:#fff;font-weight:600;">Oyuncu Sayısı:</label>
-            <select id="tekPlayerCountSelect" style="padding:6px 12px;border-radius:8px;border:none;font-size:1rem;">
-              <option value="3">3</option>
-              <option value="4" selected>4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="8">8</option>
+          <div id="cift-count" style="margin: 10px auto; text-align: center">
+            <label style="color: #fff; font-weight: 600">Çift Sayısı:</label>
+            <select
+              id="ciftCountSelect"
+              style="
+                padding: 6px 12px;
+                border-radius: 8px;
+                border: none;
+                font-size: 1rem;
+              "
+            >
+              <option value="2" selected>2 Çift (4 Kişi)</option>
+              <option value="3">3 Çift (6 Kişi)</option>
+              <option value="4">4 Çift (8 Kişi)</option>
+              <option value="5">5 Çift (10 Kişi)</option>
+            </select>
+          </div>
+          <div id="tek-count" style="margin: 10px auto; text-align: center; display: none">
+            <label style="color: #fff; font-weight: 600">Kişi Sayısı:</label>
+            <select
+              id="tekCountSelect"
+              style="
+                padding: 6px 12px;
+                border-radius: 8px;
+                border: none;
+                font-size: 1rem;
+              "
+            >
+              <option value="2">2 Kişi</option>
+              <option value="3">3 Kişi</option>
+              <option value="4" selected>4 Kişi</option>
+              <option value="5">5 Kişi</option>
+              <option value="6">6 Kişi</option>
+              <option value="7">7 Kişi</option>
+              <option value="8">8 Kişi</option>
+              <option value="9">9 Kişi</option>
+              <option value="10">10 Kişi</option>
             </select>
           </div>
           <div class="game-cards">
-            <div class="game-card" id="card-telepati" onclick="selectGame('telepati')">
+            <div
+              class="game-card"
+              id="card-telepati"
+              onclick="selectGame('telepati')"
+            >
               <div class="game-card-icon">🧠</div>
               <h3>Telepati</h3>
               <p>Aynı kelimeyi yazmaya çalışın!</p>
             </div>
-            <div class="game-card" id="card-isimSehir" onclick="selectGame('isimSehir')">
+            <div
+              class="game-card"
+              id="card-isimSehir"
+              onclick="selectGame('isimSehir')"
+            >
               <div class="game-card-icon">🔤</div>
               <h3>İsim Şehir</h3>
               <p>Harf gelir, kategori gelir, eşleşin!</p>
             </div>
-            <div class="game-card" id="card-pictionary" onclick="selectGame('pictionary')">
+            <div
+              class="game-card"
+              id="card-pictionary"
+              onclick="selectGame('pictionary')"
+            >
               <div class="game-card-icon">🎨</div>
               <h3>Resim Çiz</h3>
               <p>Çiz, tahmin et, puan topla!</p>
             </div>
+            <div class="game-card" id="card-tabu" onclick="selectGame('tabu')">
+              <div class="game-card-icon">🚫</div>
+              <h3>Tabu</h3>
+              <p>Yasaklı kelime kullanmadan anlat!</p>
+              <span class="face-to-face-badge">Yüz yüze oynanır</span>
+            </div>
+            <div
+              class="game-card"
+              id="card-imposter"
+              onclick="selectGame('imposter')"
+              style="display:none"
+            >
+              <div class="game-card-icon">🕵️‍♂️</div>
+              <h3>Imposter</h3>
+              <p>Bir kişi impostor! Herkes ne yazdı gözükecek.</p>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- OYUN AYARLARI EKRANI -->
+      <div id="game-settings-screen" class="screen">
+        <div class="game-select-container">
+          <h2 class="select-title" id="settings-game-title">Oyun Ayarları</h2>
+          <div class="row-inputs" style="max-width: 300px; margin: 20px auto">
+            <div class="half-input">
+              <label style="color: #fff">Tur Sayısı</label>
+              <input
+                type="number"
+                id="roundCountInput"
+                min="1"
+                max="20"
+                value="5"
+                style="
+                  padding: 10px;
+                  border-radius: 8px;
+                  border: none;
+                  font-size: 1rem;
+                  width: 100%;
+                  text-align: center;
+                "
+              />
+            </div>
+            <div class="half-input">
+              <label style="color: #fff">Süre (sn)</label>
+              <input
+                type="number"
+                id="roundTimeInput"
+                min="5"
+                max="120"
+                value="10"
+                style="
+                  padding: 10px;
+                  border-radius: 8px;
+                  border: none;
+                  font-size: 1rem;
+                  width: 100%;
+                  text-align: center;
+                "
+              />
+            </div>
+          </div>
+          <button
+            class="btn-primary"
+            onclick="confirmGameSettings()"
+            style="margin-top: 10px"
+          >
+            Odayı Kur
+          </button>
         </div>
       </div>
 
@@ -202,8 +320,15 @@
             <div class="panel-header"><h3 id="isLeftName">Oyuncu 1</h3></div>
             <div class="panel-content">
               <div id="is-input-area" class="input-wrapper">
-                <input type="text" id="isWordInput" placeholder="Cevap..." autocomplete="off" />
-                <button id="isSendBtn" onclick="sendIsimSehirWord()">GÖNDER</button>
+                <input
+                  type="text"
+                  id="isWordInput"
+                  placeholder="Cevap..."
+                  autocomplete="off"
+                />
+                <button id="isSendBtn" onclick="sendIsimSehirWord()">
+                  GÖNDER
+                </button>
               </div>
               <div id="is-spectator-left" class="spectator-text hidden">🤔</div>
               <div id="is-left-status" class="status-text">...</div>
@@ -212,8 +337,12 @@
           <div id="is-right-panel" class="game-panel">
             <div class="panel-header"><h3 id="isRightName">Oyuncu 2</h3></div>
             <div class="panel-content center-content">
-              <div id="is-right-status" class="partner-waiting-animation">Bekleniyor...</div>
-              <div id="is-spectator-right" class="spectator-text hidden">🤔</div>
+              <div id="is-right-status" class="partner-waiting-animation">
+                Bekleniyor...
+              </div>
+              <div id="is-spectator-right" class="spectator-text hidden">
+                🤔
+              </div>
             </div>
           </div>
         </div>
@@ -221,7 +350,10 @@
         <div id="is-timer" class="timer-countdown"></div>
 
         <div class="game-footer">
-          <div id="is-round-display" style="font-size:1.2rem;margin-bottom:5px"></div>
+          <div
+            id="is-round-display"
+            style="font-size: 1.2rem; margin-bottom: 5px"
+          ></div>
           <div id="is-game-log" class="log-container"></div>
         </div>
       </div>
@@ -232,40 +364,238 @@
 
         <div id="pic-word-display" class="pic-word-display hidden"></div>
 
-        <div class="pic-canvas-container">
-          <canvas id="pic-canvas" width="400" height="350"></canvas>
+        <div class="pic-draw-area">
+          <!-- Sol Araç Çubuğu -->
+          <div id="pic-left-tools" class="pic-left-tools hidden">
+            <button class="pic-tool-icon active" data-tool="pen" title="Kalem">
+              &#9998;
+            </button>
+            <button class="pic-tool-icon" data-tool="eraser" title="Silgi">
+              &#9003;
+            </button>
+            <button class="pic-tool-icon" data-tool="square" title="Kare">
+              &#9634;
+            </button>
+            <button
+              class="pic-tool-icon"
+              data-tool="rectangle"
+              title="Dikdörtgen"
+            >
+              &#9645;
+            </button>
+            <button class="pic-tool-icon" data-tool="triangle" title="Üçgen">
+              &#9651;
+            </button>
+            <button class="pic-tool-icon" data-tool="circle" title="Daire">
+              &#9675;
+            </button>
+            <button
+              class="pic-tool-icon"
+              data-tool="clear"
+              title="Temizle"
+              onclick="clearCanvas()"
+            >
+              &#10060;
+            </button>
+            <input
+              type="range"
+              id="pic-thickness"
+              min="2"
+              max="20"
+              value="4"
+              class="pic-thickness-slider"
+              title="Kalınlık"
+            />
+          </div>
+
+          <!-- Canvas -->
+          <div class="pic-canvas-container">
+            <canvas id="pic-canvas" width="500" height="450"></canvas>
+          </div>
         </div>
 
-        <div id="pic-toolbar" class="pic-toolbar hidden">
-          <div class="pic-colors">
-            <span class="pic-color active" data-color="#000000" style="background:#000000"></span>
-            <span class="pic-color" data-color="#e74c3c" style="background:#e74c3c"></span>
-            <span class="pic-color" data-color="#3498db" style="background:#3498db"></span>
-            <span class="pic-color" data-color="#27ae60" style="background:#27ae60"></span>
-            <span class="pic-color" data-color="#f39c12" style="background:#f39c12"></span>
-            <span class="pic-color" data-color="#8e44ad" style="background:#8e44ad"></span>
-            <span class="pic-color" data-color="#e91e63" style="background:#e91e63"></span>
-            <span class="pic-color" data-color="#ffffff" style="background:#ffffff; border:1px solid #999"></span>
+        <!-- Alt Renk Çubuğu -->
+        <div id="pic-color-bar" class="pic-color-bar hidden">
+          <div class="pic-color-row">
+            <span
+              class="pic-color active"
+              data-color="#000000"
+              style="background: #000000"
+              title="Siyah"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#ffffff"
+              style="background: #ffffff"
+              title="Beyaz"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#e74c3c"
+              style="background: #e74c3c"
+              title="Kırmızı"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#3498db"
+              style="background: #3498db"
+              title="Mavi"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#2ecc71"
+              style="background: #2ecc71"
+              title="Yeşil"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#f1c40f"
+              style="background: #f1c40f"
+              title="Sarı"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#e67e22"
+              style="background: #e67e22"
+              title="Turuncu"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#e91e63"
+              style="background: #e91e63"
+              title="Pembe"
+            ></span>
           </div>
-          <div class="pic-tools">
-            <label class="pic-thickness-label">
-              <input type="range" id="pic-thickness" min="2" max="20" value="4">
-            </label>
-            <button class="pic-tool-btn" id="pic-eraser-btn" onclick="toggleEraser()">Silgi</button>
-            <button class="pic-tool-btn" onclick="clearCanvas()">Temizle</button>
+          <div class="pic-color-row">
+            <span
+              class="pic-color"
+              data-color="#7f8c8d"
+              style="background: #7f8c8d"
+              title="Gri"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#8e44ad"
+              style="background: #8e44ad"
+              title="Mor"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#1abc9c"
+              style="background: #1abc9c"
+              title="Turkuaz"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#2c3e50"
+              style="background: #2c3e50"
+              title="Lacivert"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#d35400"
+              style="background: #d35400"
+              title="Koyu Turuncu"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#a0522d"
+              style="background: #a0522d"
+              title="Kahverengi"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#00bcd4"
+              style="background: #00bcd4"
+              title="Cyan"
+            ></span>
+            <span
+              class="pic-color"
+              data-color="#cddc39"
+              style="background: #cddc39"
+              title="Lime"
+            ></span>
           </div>
         </div>
 
         <div id="pic-guess-area" class="pic-guess-area hidden">
-          <input type="text" id="pic-guess-input" placeholder="Tahmin yaz..." autocomplete="off" />
-          <button id="pic-guess-btn" onclick="sendPictionaryGuess()">TAHMİN</button>
+          <input
+            type="text"
+            id="pic-guess-input"
+            placeholder="Tahmin yaz..."
+            autocomplete="off"
+          />
+          <button id="pic-guess-btn" onclick="sendPictionaryGuess()">
+            TAHMİN
+          </button>
         </div>
 
         <div id="pic-timer" class="timer-countdown"></div>
 
         <div class="game-footer">
-          <div id="pic-round-display" style="font-size:1.2rem;margin-bottom:5px"></div>
+          <div
+            id="pic-round-display"
+            style="font-size: 1.2rem; margin-bottom: 5px"
+          ></div>
           <div id="pic-game-log" class="log-container"></div>
+        </div>
+      </div>
+
+      <!-- TABU EKRANI -->
+      <div id="tabu-screen" class="screen">
+        <div id="tabu-turn-info" class="turn-info">Tabu Başlıyor...</div>
+
+        <!-- Anlatıcı Kelime Kartı -->
+        <div id="tabu-card" class="tabu-card hidden">
+          <div id="tabu-main-word" class="tabu-main-word">KELİME</div>
+          <div class="tabu-forbidden-list">
+            <div class="tabu-forbidden-item" id="tabu-f1">---</div>
+            <div class="tabu-forbidden-item" id="tabu-f2">---</div>
+            <div class="tabu-forbidden-item" id="tabu-f3">---</div>
+            <div class="tabu-forbidden-item" id="tabu-f4">---</div>
+            <div class="tabu-forbidden-item" id="tabu-f5">---</div>
+          </div>
+        </div>
+
+        <!-- Forbidden Alert -->
+        <div id="tabu-forbidden-alert" class="tabu-forbidden-alert hidden">
+          YASAKLI KELİME! 🚫
+        </div>
+
+        <!-- Chat Alanı -->
+        <div class="tabu-chat" id="tabu-chat"></div>
+
+        <!-- Anlatıcı Input -->
+        <div id="tabu-clue-area" class="tabu-input-area hidden">
+          <input
+            type="text"
+            id="tabu-clue-input"
+            placeholder="İpucu yaz..."
+            autocomplete="off"
+          />
+          <button id="tabu-clue-btn" onclick="sendTabuClue()">GÖNDER</button>
+          <button class="btn-pass" onclick="sendTabuPass()">PAS ⏭</button>
+        </div>
+
+        <!-- Tahmin Eden Input -->
+        <div id="tabu-guess-area" class="tabu-input-area hidden">
+          <input
+            type="text"
+            id="tabu-guess-input"
+            placeholder="Tahmin yaz..."
+            autocomplete="off"
+          />
+          <button id="tabu-guess-btn" onclick="sendTabuGuess()">TAHMİN</button>
+        </div>
+
+        <div id="tabu-timer" class="timer-countdown"></div>
+
+        <div class="game-footer">
+          <div
+            id="tabu-round-display"
+            style="font-size: 1.2rem; margin-bottom: 5px"
+          ></div>
+          <div id="tabu-game-log" class="log-container"></div>
         </div>
       </div>
 
@@ -314,6 +644,51 @@
             style="font-size: 1.2rem; margin-bottom: 5px"
           ></div>
           <div id="game-log" class="log-container"></div>
+        </div>
+      </div>
+
+      <!-- IMPOSTER EKRANI -->
+      <div id="imposter-screen" class="screen">
+        <div class="turn-info" id="imposter-turn-info">
+          Imposter Başlıyor...
+        </div>
+        <div class="imposter-card">
+          <h2 id="imposter-title">Kelime</h2>
+          <div id="imposter-main-word" class="highlight-code">---</div>
+          <div id="imposter-hint" class="imposter-hint hidden"></div>
+        </div>
+
+        <div id="imposter-phase-label" class="imposter-phase-label hidden"></div>
+
+        <div id="imposter-answers" class="imposter-answers hidden"></div>
+
+        <div id="imposter-input-area" class="input-wrapper">
+          <input
+            type="text"
+            id="imposterWordInput"
+            placeholder="Kelimeyle ilgili bir şey yaz..."
+            autocomplete="off"
+          />
+          <button id="imposterSendBtn" onclick="sendImposterWord()">
+            GÖNDER
+          </button>
+        </div>
+
+        <div id="imposter-submitted-list" class="imposter-submitted-list hidden"></div>
+
+        <div id="imposter-vote-area" class="imposter-vote-area hidden">
+          <h3 style="color:#fff; margin-bottom:12px;">Imposter kim? Oy ver!</h3>
+          <div id="imposter-vote-list"></div>
+        </div>
+
+        <div id="imposter-timer" class="timer-countdown"></div>
+
+        <div class="game-footer">
+          <div
+            id="imposter-round-display"
+            style="font-size: 1.2rem; margin-bottom: 5px"
+          ></div>
+          <div id="imposter-game-log" class="log-container"></div>
         </div>
       </div>
     </div>

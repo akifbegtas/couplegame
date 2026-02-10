@@ -239,17 +239,6 @@ header {
   margin: 0 0 15px 0;
   font-size: 1.2rem;
 }
-.copy-btn {
-  cursor: pointer;
-  font-size: 1.2rem;
-  margin-left: 8px;
-  vertical-align: middle;
-  transition: transform 0.2s;
-  display: inline-block;
-}
-.copy-btn:hover {
-  transform: scale(1.2);
-}
 .share-btn {
   cursor: pointer;
   margin-left: 6px;
@@ -273,6 +262,16 @@ header {
   font-weight: 800;
   display: inline-block;
   box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.highlight-code:active {
+  transform: scale(0.95);
+}
+.highlight-code.code-copied {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  letter-spacing: 1px;
+  font-size: 1rem;
 }
 
 /* ======= TAKIM KARTLARI ======= */

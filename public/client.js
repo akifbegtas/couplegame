@@ -188,11 +188,16 @@ function switchTab(mode) {
 }
 
 function copyRoomCode() {
-  const code = document.getElementById("displayRoomCode").innerText;
+  const el = document.getElementById("displayRoomCode");
+  const code = el.innerText;
   navigator.clipboard.writeText(code).then(() => {
-    const btn = document.querySelector(".copy-btn");
-    btn.innerText = "✅";
-    setTimeout(() => (btn.innerText = "📋"), 1500);
+    el.classList.add("code-copied");
+    el.dataset.originalText = code;
+    el.innerText = "Kopyalandı!";
+    setTimeout(() => {
+      el.innerText = code;
+      el.classList.remove("code-copied");
+    }, 1200);
   });
 }
 
@@ -222,7 +227,7 @@ function sendWord(auto) {
     inp.value = "";
     inp.disabled = true;
     document.getElementById("sendWordBtn").disabled = true;
-    document.getElementById("left-status").innerText = "Bekleniyor...";
+    document.getElementById("left-status").innerText = "Gönderildi!";
     clearInterval(timerInterval);
   }
 }
@@ -268,7 +273,7 @@ function sendIsimSehirWord(auto) {
     inp.value = "";
     inp.disabled = true;
     document.getElementById("isSendBtn").disabled = true;
-    document.getElementById("is-left-status").innerText = "Bekleniyor...";
+    document.getElementById("is-left-status").innerText = "Gönderildi!";
     clearInterval(timerInterval);
   }
 }
@@ -528,6 +533,7 @@ socket.on("spectatorUpdate", (res) => {
         document.getElementById("sendWordBtn").disabled = false;
         inp.focus();
         document.getElementById("left-status").innerText = "Tekrar...";
+        document.getElementById("right-status").innerText = "Yazıyor...";
         startTimer(window._roundTime);
       }, 1000);
     }

@@ -250,6 +250,19 @@ header {
 .copy-btn:hover {
   transform: scale(1.2);
 }
+.share-btn {
+  cursor: pointer;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.share-btn:hover {
+  transform: scale(1.2);
+}
+.whatsapp-icon {
+  vertical-align: middle;
+}
 .highlight-code {
   background: linear-gradient(135deg, #ff6b6b, #ee5a24);
   color: white;

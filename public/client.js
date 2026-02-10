@@ -1,4 +1,11 @@
 const socket = io();
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 let currentRoom = null;
 let myPlayerId = null;
 let amIPlaying = false;
@@ -8,7 +15,9 @@ let letterAnimationDone = true;
 let pendingCategoryData = null;
 let waitingForKeyPress = false;
 let currentTargetLetter = null;
+let _letterInputHandler = null;
 let selectedMode = "cift";
+let _listenersAttached = {};
 
 // --- AYI UYARI ---
 function showBearBubble(msg, target) {
@@ -122,6 +131,7 @@ function selectGame(type) {
     isimSehir: "İsim Şehir",
     pictionary: "Resim Çiz",
     tabu: "Tabu",
+    imposter: "Imposter",
   };
   document.getElementById("settings-game-title").innerText =
     names[type] + " - Ayarlar";
@@ -161,7 +171,7 @@ function joinRoom() {
   if (!username) return showBearBubble("İsmini yazmadan nereye :)", "name");
   if (!genderEl) return showBearBubble("Cinsiyetini seçsene :)", "gender");
   hideBearBubble();
-  socket.emit("joinRoom", { roomId: code, username, gender: genderEl.value });
+  socket.emit("joinRoom", { roomId: code.toUpperCase(), username, gender: genderEl.value });
 }
 
 function switchTab(mode) {
@@ -184,6 +194,14 @@ function copyRoomCode() {
     btn.innerText = "✅";
     setTimeout(() => (btn.innerText = "📋"), 1500);
   });
+}
+
+function shareWhatsApp() {
+  const code = document.getElementById("displayRoomCode").innerText;
+  const url = window.location.origin;
+  const message = `Couple Game'e gel! 💖\n\nOda Kodu: ${code}\n\n${url}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  window.open(whatsappUrl, "_blank");
 }
 
 function joinTeamSlot(idx, slot) {
@@ -331,11 +349,12 @@ socket.on("updateLobby", (data) => {
         const cls = p.gender === "female" ? "slot-female" : "slot-male";
         const hostBadge =
           p.id === data.hostId ? ' <span class="host-badge">KURUCU</span>' : "";
-        return `<div class="slot filled ${cls}">${icon} ${p.username}${hostBadge}</div>`;
+        return `<div class="slot filled ${cls}">${icon} ${escapeHtml(p.username)}${hostBadge}</div>`;
       })
       .join("");
+    const maxLabel = data.maxPlayers > 0 ? `${data.players.length}/${data.maxPlayers}` : `${data.players.length}`;
     div.innerHTML = `<div class="team-card" style="grid-column:1/-1;">
-      <div class="team-title">Oyuncular (${data.players.length})</div>
+      <div class="team-title">Oyuncular (${maxLabel})</div>
       <div class="tek-players-list">${playerSlots}</div>
     </div>`;
   } else {
@@ -361,7 +380,7 @@ socket.on("updateLobby", (data) => {
     .map((p) => {
       const icon = p.gender === "female" ? "👩" : "👨";
       const cls = p.gender === "female" ? "spec-female" : "spec-male";
-      return `<span class="${cls}">${icon} ${p.username}</span>`;
+      return `<span class="${cls}">${icon} ${escapeHtml(p.username)}</span>`;
     })
     .join("");
   document.getElementById("spectator-list").innerHTML = specs;
@@ -373,7 +392,7 @@ function renderSlot(p, i, slot, hostId) {
     const icon = p.gender === "female" ? "👩" : "👨";
     const hostBadge =
       p.id === hostId ? ' <span class="host-badge">KURUCU</span>' : "";
-    return `<div class="slot filled ${genderClass}">${icon} ${p.username}${hostBadge}</div>`;
+    return `<div class="slot filled ${genderClass}">${icon} ${escapeHtml(p.username)}${hostBadge}</div>`;
   }
   return `<div class="slot empty" onclick="joinTeamSlot(${i}, '${slot}')">+ KATIL</div>`;
 }
@@ -391,9 +410,12 @@ socket.on("gameInit", (data) => {
 
   Swal.fire({ title: "Başlıyor!", timer: 1500, showConfirmButton: false });
 
-  document.getElementById("wordInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendWord();
-  });
+  if (!_listenersAttached.wordInput) {
+    document.getElementById("wordInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendWord();
+    });
+    _listenersAttached.wordInput = true;
+  }
 });
 
 socket.on("turnStarted", (data) => {
@@ -485,7 +507,7 @@ socket.on("spectatorUpdate", (res) => {
   clearInterval(timerInterval);
   const div = document.createElement("div");
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
-  div.innerHTML = `${res.p1Word} - ${res.p2Word} ${res.match ? "✅" : "❌"}`;
+  div.innerHTML = `${escapeHtml(res.p1Word)} - ${escapeHtml(res.p2Word)} ${res.match ? "✅" : "❌"}`;
 
   if (window._currentGameType === "isimSehir") {
     document.getElementById("is-game-log").prepend(div);
@@ -523,7 +545,7 @@ socket.on("updateScoreboard", (scores) => {
     else if (s.rank === 3 && !s.eliminated) icon = "🥉";
 
     list.innerHTML += `<div class="score-item" style="${style}">
-            <span>${icon} ${s.name}</span>
+            <span>${icon} ${escapeHtml(s.name)}</span>
             <span style="font-weight:bold">${s.score}${window._currentGameType === "telepati" ? "/20" : " puan"}</span>
         </div>`;
   });
@@ -583,9 +605,12 @@ socket.on("isimSehirStart", (data) => {
     showConfirmButton: false,
   });
 
-  document.getElementById("isWordInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendIsimSehirWord();
-  });
+  if (!_listenersAttached.isWordInput) {
+    document.getElementById("isWordInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendIsimSehirWord();
+    });
+    _listenersAttached.isWordInput = true;
+  }
 });
 
 socket.on("letterSelected", (data) => {
@@ -610,15 +635,21 @@ socket.on("letterSelected", (data) => {
     }
   });
 
+  // Önceki listener'ı kaldır
+  if (_letterInputHandler) {
+    inp.removeEventListener("input", _letterInputHandler);
+  }
+
   // Input'a yazılan harfi kontrol et
-  function onLetterInput(e) {
+  _letterInputHandler = function(e) {
     const typed = inp.value.toLocaleUpperCase("tr-TR");
     if (!letterAnimationDone) return;
 
     if (typed === currentTargetLetter) {
       // Doğru harf girildi, yazılan harfi koru ve devam et
       waitingForKeyPress = false;
-      inp.removeEventListener("input", onLetterInput);
+      inp.removeEventListener("input", _letterInputHandler);
+      _letterInputHandler = null;
       if (pendingCategoryData) {
         inp.placeholder = pendingCategoryData.category + "...";
       } else {
@@ -630,8 +661,8 @@ socket.on("letterSelected", (data) => {
       inp.classList.add("pic-guess-wrong");
       setTimeout(() => inp.classList.remove("pic-guess-wrong"), 500);
     }
-  }
-  inp.addEventListener("input", onLetterInput);
+  };
+  inp.addEventListener("input", _letterInputHandler);
 
   if (data.currentRound) {
     document.getElementById("is-round-display").innerText =
@@ -705,7 +736,7 @@ socket.on("isimSehirResult", (res) => {
   clearInterval(timerInterval);
   const div = document.createElement("div");
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
-  let resultText = `${res.category}: ${res.p1Word} - ${res.p2Word} ${res.match ? "✅ +1" : "❌ 0"}`;
+  let resultText = `${escapeHtml(res.category)}: ${escapeHtml(res.p1Word)} - ${escapeHtml(res.p2Word)} ${res.match ? "✅ +1" : "❌ 0"}`;
   if (res.example) {
     resultText += ` (Örnek: ${res.example})`;
   }
@@ -1020,11 +1051,14 @@ socket.on("pictionaryStart", (data) => {
     showConfirmButton: false,
   });
 
-  document
-    .getElementById("pic-guess-input")
-    .addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendPictionaryGuess();
-    });
+  if (!_listenersAttached.picGuessInput) {
+    document
+      .getElementById("pic-guess-input")
+      .addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendPictionaryGuess();
+      });
+    _listenersAttached.picGuessInput = true;
+  }
 });
 
 socket.on("pictionaryRound", (data) => {
@@ -1167,14 +1201,14 @@ socket.on("pictionaryWrongGuess", (data) => {
   }
   const div = document.createElement("div");
   div.className = "log-item log-fail";
-  div.innerHTML = `${data.guesserName}: "${data.guess}" ❌`;
+  div.innerHTML = `${escapeHtml(data.guesserName)}: "${escapeHtml(data.guess)}" ❌`;
   document.getElementById("pic-game-log").prepend(div);
 });
 
 socket.on("pictionaryCorrect", (data) => {
   const div = document.createElement("div");
   div.className = "log-item log-success";
-  div.innerHTML = `${data.teamName} bildi! +${data.points} puan (${data.order}. sıra)`;
+  div.innerHTML = `${escapeHtml(data.teamName)} bildi! +${data.points} puan (${data.order}. sıra)`;
   document.getElementById("pic-game-log").prepend(div);
 
   if (data.gameMode === "tek") {
@@ -1260,16 +1294,19 @@ socket.on("tabuStart", (data) => {
 
   Swal.fire({ title: "Tabu Başlıyor!", timer: 1500, showConfirmButton: false });
 
-  document
-    .getElementById("tabu-clue-input")
-    .addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendTabuClue();
-    });
-  document
-    .getElementById("tabu-guess-input")
-    .addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendTabuGuess();
-    });
+  if (!_listenersAttached.tabuClueInput) {
+    document
+      .getElementById("tabu-clue-input")
+      .addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendTabuClue();
+      });
+    document
+      .getElementById("tabu-guess-input")
+      .addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendTabuGuess();
+      });
+    _listenersAttached.tabuClueInput = true;
+  }
 });
 
 socket.on("tabuTurn", (data) => {
@@ -1368,7 +1405,7 @@ socket.on("tabuCorrect", (data) => {
 
   const logDiv = document.createElement("div");
   logDiv.className = "log-item log-success";
-  logDiv.innerHTML = `${data.teamName}: "${data.word}" ✅ +1`;
+  logDiv.innerHTML = `${escapeHtml(data.teamName)}: "${escapeHtml(data.word)}" ✅ +1`;
   document.getElementById("tabu-game-log").prepend(logDiv);
 
   if (amIPlaying) {
@@ -1483,11 +1520,14 @@ socket.on("imposterStart", (data) => {
     showConfirmButton: false,
   });
 
-  document
-    .getElementById("imposterWordInput")
-    .addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendImposterWord();
-    });
+  if (!_listenersAttached.imposterWordInput) {
+    document
+      .getElementById("imposterWordInput")
+      .addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendImposterWord();
+      });
+    _listenersAttached.imposterWordInput = true;
+  }
 });
 
 socket.on("imposterRound", (data) => {
@@ -1688,7 +1728,7 @@ socket.on("imposterVoteResult", (data) => {
     const badge = v.isImposter ? " 🕵️" : "";
     const voteBadge = v.votes > 0 ? ` (${v.votes} oy)` : "";
     div.className = v.isImposter ? "log-item log-fail" : "log-item log-success";
-    div.innerHTML = `${v.username}${badge} → ${v.votedFor}${voteBadge}`;
+    div.innerHTML = `${escapeHtml(v.username)}${badge} → ${escapeHtml(v.votedFor)}${voteBadge}`;
     log.appendChild(div);
   });
 

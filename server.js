@@ -59,7 +59,7 @@ const EXAMPLES = {
   L: { İSİM: "Leyla", ŞEHİR: "Londra", HAYVAN: "Lama" },
   M: { İSİM: "Murat", ŞEHİR: "Mersin", HAYVAN: "Maymun" },
   N: { İSİM: "Naz", ŞEHİR: "Nevşehir", HAYVAN: "Narval" },
-  O: { İSİM: "Okan", ŞEHİR: "Ordu", HAYVAN: "Ördek" },
+  O: { İSİM: "Okan", ŞEHİR: "Ordu", HAYVAN: "Okapi" },
   Ö: { İSİM: "Özge", ŞEHİR: "Ödenburg", HAYVAN: "Ökse" },
   P: { İSİM: "Pınar", ŞEHİR: "Paris", HAYVAN: "Penguen" },
   R: { İSİM: "Rüya", ŞEHİR: "Rize", HAYVAN: "Rakun" },
@@ -67,7 +67,7 @@ const EXAMPLES = {
   Ş: { İSİM: "Şeyma", ŞEHİR: "Şanlıurfa", HAYVAN: "Şahin" },
   T: { İSİM: "Tolga", ŞEHİR: "Trabzon", HAYVAN: "Tavşan" },
   U: { İSİM: "Umut", ŞEHİR: "Uşak", HAYVAN: "Unicorn" },
-  Ü: { İSİM: "Ümit", ŞEHİR: "Üsküp", HAYVAN: "Ülker" },
+  Ü: { İSİM: "Ümit", ŞEHİR: "Üsküp", HAYVAN: "Üveyik" },
   V: { İSİM: "Volkan", ŞEHİR: "Van", HAYVAN: "Vaşak" },
   Y: { İSİM: "Yasemin", ŞEHİR: "Yozgat", HAYVAN: "Yunus" },
   Z: { İSİM: "Zeynep", ŞEHİR: "Zonguldak", HAYVAN: "Zebra" },
@@ -1030,7 +1030,21 @@ io.on("connection", (socket) => {
       }
 
       room.spectators = room.spectators.filter((p) => p.id !== socket.id);
-      emitLobbyUpdate(roomId);
+
+      // Boş oda kontrolü - tüm timerları temizle ve odayı sil
+      const hasTeamPlayers = room.teams.some((t) => t.p1 || t.p2);
+      const hasSoloPlayers = room.players && room.players.length > 0;
+      const hasSpectators = room.spectators.length > 0;
+
+      if (!hasTeamPlayers && !hasSoloPlayers && !hasSpectators) {
+        if (room.pictionaryTimer) clearTimeout(room.pictionaryTimer);
+        if (room.tabuTimer) clearTimeout(room.tabuTimer);
+        if (room.imposterTimer) clearTimeout(room.imposterTimer);
+        delete rooms[roomId];
+        console.log(`Oda silindi (boş): ${roomId}`);
+      } else {
+        emitLobbyUpdate(roomId);
+      }
     }
   });
 });
@@ -1041,32 +1055,36 @@ function nextTurn(roomId) {
   const room = rooms[roomId];
   if (!room) return;
 
-  room.currentPairIndex++;
+  // İteratif olarak sıradaki elenmeyen çifti bul
+  const maxIterations = room.pairs.length * (room.roundCount + 1);
+  for (let i = 0; i < maxIterations; i++) {
+    room.currentPairIndex++;
 
-  if (room.currentPairIndex >= room.pairs.length) {
-    room.currentPairIndex = 0;
-    room.currentRound++;
+    if (room.currentPairIndex >= room.pairs.length) {
+      room.currentPairIndex = 0;
+      room.currentRound++;
 
-    if (room.currentRound > room.roundCount) {
-      io.to(roomId).emit("gameOver", "Turnuva Bitti! Tebrikler! 🏆");
-      room.gameStatus = "finished";
-      return;
+      if (room.currentRound > room.roundCount) {
+        io.to(roomId).emit("gameOver", "Turnuva Bitti! Tebrikler! 🏆");
+        room.gameStatus = "finished";
+        return;
+      }
+
+      io.to(roomId).emit("roundChanged", room.currentRound);
     }
 
-    io.to(roomId).emit("roundChanged", room.currentRound);
-  }
-
-  const nextP = room.pairs[room.currentPairIndex];
-  if (nextP.isEliminated) {
-    if (room.pairs.every((p) => p.isEliminated)) {
-      io.to(roomId).emit("gameOver", "Herkes Elendi! 💀");
-      return;
+    const nextP = room.pairs[room.currentPairIndex];
+    if (nextP.isEliminated) {
+      if (room.pairs.every((p) => p.isEliminated)) {
+        io.to(roomId).emit("gameOver", "Herkes Elendi! 💀");
+        return;
+      }
+      continue;
     }
-    nextTurn(roomId);
+
+    setTimeout(() => startTurn(roomId), 1500);
     return;
   }
-
-  setTimeout(() => startTurn(roomId), 1500);
 }
 
 function startTurn(roomId) {
@@ -1229,6 +1247,8 @@ function startPictionaryRound(roomId) {
   const room = rooms[roomId];
   if (!room) return;
 
+  room._pictionaryRoundEnding = false;
+
   // Pick unused word
   let available = PICTIONARY_WORDS.filter(
     (w) => !room.pictionaryUsedWords.includes(w),
@@ -1316,6 +1336,10 @@ function startPictionaryRound(roomId) {
 function endPictionaryRound(roomId) {
   const room = rooms[roomId];
   if (!room || room.gameStatus !== "playing") return;
+
+  // Çift çağrı koruması
+  if (room._pictionaryRoundEnding) return;
+  room._pictionaryRoundEnding = true;
 
   if (room.pictionaryTimer) {
     clearTimeout(room.pictionaryTimer);
@@ -1673,6 +1697,22 @@ function endImposterPhase(roomId) {
         username: p.username,
       }));
       io.to(roomId).emit("imposterVoteStart", { players: playerList });
+
+      // Oylama için timeout
+      if (room.imposterTimer) clearTimeout(room.imposterTimer);
+      room.imposterTimer = setTimeout(() => {
+        if (room.imposterPhase !== "vote") return;
+        // Oy vermeyenleri rastgele doldur
+        room.players.forEach((p) => {
+          if (!room.imposterVotes[p.id]) {
+            const others = room.players.filter((o) => o.id !== p.id);
+            if (others.length > 0) {
+              room.imposterVotes[p.id] = others[Math.floor(Math.random() * others.length)].id;
+            }
+          }
+        });
+        endImposterVoting(roomId);
+      }, 30000);
     }, 3000);
   }
 }
@@ -1680,6 +1720,11 @@ function endImposterPhase(roomId) {
 function endImposterVoting(roomId) {
   const room = rooms[roomId];
   if (!room || room.gameStatus !== "playing") return;
+
+  if (room.imposterTimer) {
+    clearTimeout(room.imposterTimer);
+    room.imposterTimer = null;
+  }
 
   // Oyları say
   const voteCounts = {};

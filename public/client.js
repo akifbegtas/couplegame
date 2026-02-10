@@ -453,12 +453,19 @@ socket.on("turnStarted", (data) => {
   const specL = document.getElementById("spectator-view-left");
   const specR = document.getElementById("spectator-view-right");
 
+  const leftStatus = document.getElementById("left-status");
+  const rightStatus = document.getElementById("right-status");
+
   if (amIPlaying) {
     infoBar.innerText = "SIRA SİZDE! 🚀";
     infoBar.style.backgroundColor = "#27ae60";
     inpArea.classList.remove("hidden");
     specL.classList.add("hidden");
     specR.classList.add("hidden");
+    leftStatus.classList.remove("hidden");
+    rightStatus.classList.remove("hidden");
+    leftStatus.innerText = "...";
+    rightStatus.innerText = "Yazıyor...";
 
     const inp = document.getElementById("wordInput");
     inp.disabled = false;
@@ -478,6 +485,8 @@ socket.on("turnStarted", (data) => {
     inpArea.classList.add("hidden");
     specL.classList.remove("hidden");
     specR.classList.remove("hidden");
+    leftStatus.classList.add("hidden");
+    rightStatus.classList.add("hidden");
     specL.innerText = "🤔";
     specR.innerText = "🤔";
   }

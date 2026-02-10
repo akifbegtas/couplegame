@@ -595,47 +595,77 @@ socket.on("roundChanged", (r) =>
 );
 socket.on("gameOver", (msg) => Swal.fire({ title: "BİTTİ", text: msg }));
 
+socket.on("telepatiGameOver", (data) => {
+  clearInterval(timerInterval);
+  const iWon = data.winnerIds && data.winnerIds.includes(myPlayerId);
+
+  if (iWon) {
+    // Kazanan takım
+    confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
+    setTimeout(() => confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 } }), 500);
+    Swal.fire({
+      title: "KAZANDINIZ! 🏆",
+      html: `<div style="font-size:1.2rem;margin:10px 0">
+        <strong>${escapeHtml(data.winnerP1)} & ${escapeHtml(data.winnerP2)}</strong>
+      </div>
+      <div style="font-size:2.5rem;margin:10px 0">🎉🥳🎊</div>
+      <div style="color:#27ae60;font-weight:bold">${data.lastStanding ? "Son hayatta kalan takım!" : "En az hatayla bitirdiniz!"}</div>`,
+      background: "linear-gradient(135deg, #1a1a2e, #16213e)",
+      color: "#fff",
+      confirmButtonColor: "#27ae60",
+      confirmButtonText: "Harikayız! 💪",
+    });
+  } else {
+    // Kaybeden takım
+    Swal.fire({
+      title: "KAYBETTİNİZ 😔",
+      html: `<div style="font-size:1rem;margin:10px 0">
+        Kazanan: <strong>${escapeHtml(data.winnerTeam)}</strong>
+      </div>
+      <div style="font-size:1rem">${escapeHtml(data.winnerP1)} & ${escapeHtml(data.winnerP2)} kazandı!</div>
+      <div style="font-size:2rem;margin:10px 0">😤</div>
+      <div style="color:#e67e22;font-weight:bold">Bir dahaki sefere! 💪</div>`,
+      background: "linear-gradient(135deg, #1a1a2e, #2d1b1b)",
+      color: "#fff",
+      confirmButtonColor: "#e74c3c",
+      confirmButtonText: "Tekrar Dene",
+    });
+  }
+});
+
 socket.on("backToSelect", (data) => {
   clearInterval(timerInterval);
   Swal.close();
   document.getElementById("scoreboard-panel").style.display = "none";
+  showScreen("gameSelect");
 
-  if (myPlayerId === data.hostId) {
-    // Kurucu: oyun seçim ekranına git
-    showScreen("gameSelect");
+  // pendingRoomData'yı geri kur ki selectGame çalışsın
+  const username = document.getElementById("username").value;
+  const genderEl = document.querySelector('input[name="gender"]:checked');
+  pendingRoomData = {
+    username: username || "Oyuncu",
+    gender: genderEl ? genderEl.value : "male",
+  };
 
-    // pendingRoomData'yı geri kur ki selectGame çalışsın
-    const username = document.getElementById("username").value;
-    const genderEl = document.querySelector('input[name="gender"]:checked');
-    pendingRoomData = {
-      username: username || "Kurucu",
-      gender: genderEl ? genderEl.value : "male",
-    };
+  // Mod toggle'ı odanın moduna ayarla
+  if (data.gameMode) {
+    selectMode(data.gameMode);
+  }
 
-    // Mod toggle'ı odanın moduna ayarla
-    if (data.gameMode) {
-      selectMode(data.gameMode);
-    }
-
-    // Oyuncu listesini göster
-    const container = document.getElementById("select-players-container");
-    const box = document.getElementById("select-players-box");
-    if (container && box && data.players) {
-      box.innerHTML = "";
-      data.players.forEach((p) => {
-        const icon = p.gender === "female" ? "👩" : "👨";
-        const cls = p.gender === "female" ? "spec-female" : "spec-male";
-        const span = document.createElement("span");
-        span.className = cls;
-        span.innerText = `${icon} ${p.username}`;
-        box.appendChild(span);
-      });
-      container.classList.remove("hidden");
-    }
-  } else {
-    // Diğer oyuncular: bekleme ekranına git
-    showScreen("waiting");
-    document.getElementById("displayRoomCode").innerText = currentRoom;
+  // Oyuncu listesini göster
+  const container = document.getElementById("select-players-container");
+  const box = document.getElementById("select-players-box");
+  if (container && box && data.players) {
+    box.innerHTML = "";
+    data.players.forEach((p) => {
+      const icon = p.gender === "female" ? "👩" : "👨";
+      const cls = p.gender === "female" ? "spec-female" : "spec-male";
+      const span = document.createElement("span");
+      span.className = cls;
+      span.innerText = `${icon} ${p.username}`;
+      box.appendChild(span);
+    });
+    container.classList.remove("hidden");
   }
 });
 

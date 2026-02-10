@@ -1086,12 +1086,24 @@ function nextTurn(roomId) {
       room.currentRound++;
 
       if (room.currentRound > room.roundCount) {
-        io.to(roomId).emit("gameOver", "Turnuva Bitti! Tebrikler! 🏆");
+        // En az hata yapan takım kazanır
+        const sorted = [...room.pairs].sort(
+          (a, b) => a.totalAttempts - b.totalAttempts,
+        );
+        const winner = sorted[0];
+        const winnerIds = [winner.p1.id, winner.p2.id];
+        io.to(roomId).emit("telepatiGameOver", {
+          winnerTeam: winner.teamName,
+          winnerP1: winner.p1.username,
+          winnerP2: winner.p2.username,
+          winnerIds: winnerIds,
+          winnerScore: winner.totalAttempts,
+        });
         room.gameStatus = "finished";
         setTimeout(() => {
           room.gameStatus = "waiting";
           emitBackToSelect(roomId);
-        }, 5000);
+        }, 7000);
         return;
       }
 
@@ -1112,15 +1124,20 @@ function nextTurn(roomId) {
       }
       if (alive.length === 1) {
         const winner = alive[0];
-        io.to(roomId).emit(
-          "gameOver",
-          `${winner.teamName} kazandı! 🏆 Tebrikler ${winner.p1.username} & ${winner.p2.username}! 🎉`,
-        );
+        const winnerIds = [winner.p1.id, winner.p2.id];
+        io.to(roomId).emit("telepatiGameOver", {
+          winnerTeam: winner.teamName,
+          winnerP1: winner.p1.username,
+          winnerP2: winner.p2.username,
+          winnerIds: winnerIds,
+          winnerScore: winner.totalAttempts,
+          lastStanding: true,
+        });
         room.gameStatus = "finished";
         setTimeout(() => {
           room.gameStatus = "waiting";
           emitBackToSelect(roomId);
-        }, 5000);
+        }, 7000);
         return;
       }
       continue;

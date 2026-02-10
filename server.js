@@ -1932,6 +1932,9 @@ function emitBackToSelect(roomId) {
     hostId: hostId,
     gameMode: room.gameMode,
   });
+
+  // Lobiye dönen oyuncular için lobby update gönder
+  emitLobbyUpdate(roomId);
 }
 
 function emitLobbyUpdate(roomId) {

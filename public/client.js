@@ -160,8 +160,21 @@ function confirmGameSettings() {
   if (!pendingRoomData) return;
   pendingRoomData.roundCount = document.getElementById("roundCountInput").value;
   pendingRoomData.roundTime = document.getElementById("roundTimeInput").value;
-  socket.emit("createRoom", pendingRoomData);
-  pendingRoomData = null;
+
+  if (currentRoom) {
+    // Oda zaten var, ayarları güncelle
+    socket.emit("updateRoom", {
+      roomId: currentRoom,
+      gameType: pendingRoomData.gameType,
+      gameMode: pendingRoomData.gameMode,
+      roundCount: pendingRoomData.roundCount,
+      roundTime: pendingRoomData.roundTime,
+    });
+    pendingRoomData = null;
+  } else {
+    socket.emit("createRoom", pendingRoomData);
+    pendingRoomData = null;
+  }
 }
 
 function joinRoom() {
@@ -585,23 +598,44 @@ socket.on("gameOver", (msg) => Swal.fire({ title: "BİTTİ", text: msg }));
 socket.on("backToSelect", (data) => {
   clearInterval(timerInterval);
   Swal.close();
-  showScreen("gameSelect");
   document.getElementById("scoreboard-panel").style.display = "none";
 
-  // Oyuncu listesini göster
-  const container = document.getElementById("select-players-container");
-  const box = document.getElementById("select-players-box");
-  if (container && box && data.players) {
-    box.innerHTML = "";
-    data.players.forEach((p) => {
-      const icon = p.gender === "female" ? "👩" : "👨";
-      const cls = p.gender === "female" ? "spec-female" : "spec-male";
-      const span = document.createElement("span");
-      span.className = cls;
-      span.innerText = `${icon} ${p.username}`;
-      box.appendChild(span);
-    });
-    container.classList.remove("hidden");
+  if (myPlayerId === data.hostId) {
+    // Kurucu: oyun seçim ekranına git
+    showScreen("gameSelect");
+
+    // pendingRoomData'yı geri kur ki selectGame çalışsın
+    const username = document.getElementById("username").value;
+    const genderEl = document.querySelector('input[name="gender"]:checked');
+    pendingRoomData = {
+      username: username || "Kurucu",
+      gender: genderEl ? genderEl.value : "male",
+    };
+
+    // Mod toggle'ı odanın moduna ayarla
+    if (data.gameMode) {
+      selectMode(data.gameMode);
+    }
+
+    // Oyuncu listesini göster
+    const container = document.getElementById("select-players-container");
+    const box = document.getElementById("select-players-box");
+    if (container && box && data.players) {
+      box.innerHTML = "";
+      data.players.forEach((p) => {
+        const icon = p.gender === "female" ? "👩" : "👨";
+        const cls = p.gender === "female" ? "spec-female" : "spec-male";
+        const span = document.createElement("span");
+        span.className = cls;
+        span.innerText = `${icon} ${p.username}`;
+        box.appendChild(span);
+      });
+      container.classList.remove("hidden");
+    }
+  } else {
+    // Diğer oyuncular: bekleme ekranına git
+    showScreen("waiting");
+    document.getElementById("displayRoomCode").innerText = currentRoom;
   }
 });
 

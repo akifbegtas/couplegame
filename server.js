@@ -1020,6 +1020,20 @@ io.on("connection", (socket) => {
     }
   });
 
+  // --- ODA AYARLARINI GÜNCELLE (oyun bitince tekrar seçim) ---
+  socket.on("updateRoom", (data) => {
+    const room = rooms[data.roomId];
+    if (!room || room.gameStatus !== "waiting") return;
+
+    room.gameType = data.gameType || "telepati";
+    room.roundCount = parseInt(data.roundCount) || 5;
+    room.roundTime = parseInt(data.roundTime) || 10;
+
+    // Herkesi lobiye yolla
+    io.to(data.roomId).emit("joinedRoom", data.roomId);
+    emitLobbyUpdate(data.roomId);
+  });
+
   socket.on("disconnect", () => {
     for (const roomId of Object.keys(rooms)) {
       const room = rooms[roomId];
@@ -1889,7 +1903,18 @@ function emitBackToSelect(roomId) {
     });
   }
 
-  io.to(roomId).emit("backToSelect", { players: playerList });
+  let hostId = null;
+  if (room.gameMode === "tek") {
+    hostId = room.players.length > 0 ? room.players[0].id : null;
+  } else {
+    hostId = room.teams[0] && room.teams[0].p1 ? room.teams[0].p1.id : null;
+  }
+
+  io.to(roomId).emit("backToSelect", {
+    players: playerList,
+    hostId: hostId,
+    gameMode: room.gameMode,
+  });
 }
 
 function emitLobbyUpdate(roomId) {

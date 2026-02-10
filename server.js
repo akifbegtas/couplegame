@@ -1074,6 +1074,10 @@ function nextTurn(roomId) {
       if (room.currentRound > room.roundCount) {
         io.to(roomId).emit("gameOver", "Turnuva Bitti! Tebrikler! 🏆");
         room.gameStatus = "finished";
+        setTimeout(() => {
+          room.gameStatus = "waiting";
+          emitBackToSelect(roomId);
+        }, 5000);
         return;
       }
 
@@ -1084,6 +1088,11 @@ function nextTurn(roomId) {
     if (nextP.isEliminated) {
       if (room.pairs.every((p) => p.isEliminated)) {
         io.to(roomId).emit("gameOver", "Herkes Elendi! 💀");
+        room.gameStatus = "finished";
+        setTimeout(() => {
+          room.gameStatus = "waiting";
+          emitBackToSelect(roomId);
+        }, 5000);
         return;
       }
       continue;
@@ -1220,6 +1229,10 @@ function nextIsimSehirStep(roomId) {
       `${winner.teamName} kazandı! (${winScore} puan) 🏆`,
     );
     room.gameStatus = "finished";
+    setTimeout(() => {
+      room.gameStatus = "waiting";
+      emitBackToSelect(roomId);
+    }, 5000);
     return;
   }
 
@@ -1361,10 +1374,14 @@ function endPictionaryRound(roomId) {
 
   if (room.gameMode === "tek") {
     room.currentDrawerIndex++;
+    room.currentRound++;
   } else {
     room.pictionaryDrawerToggle++;
+    // Her iki kişi de çizdikten sonra tur artsın
+    if (room.pictionaryDrawerToggle % 2 === 0) {
+      room.currentRound++;
+    }
   }
-  room.currentRound++;
 
   if (room.currentRound > room.roundCount) {
     setTimeout(() => {
@@ -1394,11 +1411,19 @@ function endPictionaryRound(roomId) {
         );
       }
       room.gameStatus = "finished";
+      // Oyun bittikten sonra lobiye dön
+      setTimeout(() => {
+        room.gameStatus = "waiting";
+        emitBackToSelect(roomId);
+      }, 5000);
     }, 2500);
     return;
   }
 
-  io.to(roomId).emit("roundChanged", room.currentRound);
+  // Sadece tur gerçekten değiştiğinde göster
+  if (room.gameMode === "tek" || room.pictionaryDrawerToggle % 2 === 0) {
+    io.to(roomId).emit("roundChanged", room.currentRound);
+  }
   setTimeout(() => {
     startPictionaryRound(roomId);
   }, 3000);
@@ -1553,6 +1578,10 @@ function endTabuTurn(roomId) {
           `${winner.teamName} kazandı! (${winScore} puan) 🏆`,
         );
         room.gameStatus = "finished";
+        setTimeout(() => {
+          room.gameStatus = "waiting";
+          emitBackToSelect(roomId);
+        }, 5000);
       }, 2500);
       return;
     }
@@ -1784,6 +1813,10 @@ function endImposterVoting(roomId) {
     setTimeout(() => {
       io.to(roomId).emit("imposterGameOver", "Oyun bitti! 🏆");
       room.gameStatus = "finished";
+      setTimeout(() => {
+        room.gameStatus = "waiting";
+        emitBackToSelect(roomId);
+      }, 5000);
     }, 8000);
     return;
   }
@@ -1792,6 +1825,51 @@ function endImposterVoting(roomId) {
     io.to(roomId).emit("roundChanged", room.currentRound);
     setTimeout(() => startImposterRound(roomId), 2000);
   }, 8000);
+}
+
+function emitBackToSelect(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  // Oyun state'ini sıfırla
+  room.currentRound = 1;
+  room.currentPairIndex = 0;
+  room.moves = {};
+  room.pairs = [];
+  room.pictionaryScores = {};
+  room.pictionaryUsedWords = [];
+  room.pictionaryDrawerToggle = 0;
+  room.pictionaryGuessOrder = [];
+  room.currentDrawerIndex = 0;
+  room.isimSehirScores = {};
+  room.usedLetters = [];
+  room.categoryIndex = 0;
+  room.tabuScores = {};
+  room.tabuUsedWords = [];
+  room.tabuClues = [];
+  room.tabuCurrentWord = null;
+  room.imposterUsedWords = [];
+
+  // Mevcut oyuncu listesini oluştur
+  let playerList = [];
+  if (room.gameMode === "tek") {
+    playerList = room.players.map((p) => ({
+      username: p.username,
+      gender: p.gender,
+    }));
+  } else {
+    room.teams.forEach((t) => {
+      if (t.p1)
+        playerList.push({ username: t.p1.username, gender: t.p1.gender });
+      if (t.p2)
+        playerList.push({ username: t.p2.username, gender: t.p2.gender });
+    });
+    room.spectators.forEach((s) => {
+      playerList.push({ username: s.username, gender: s.gender });
+    });
+  }
+
+  io.to(roomId).emit("backToSelect", { players: playerList });
 }
 
 function emitLobbyUpdate(roomId) {

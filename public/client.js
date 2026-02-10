@@ -573,6 +573,28 @@ socket.on("roundChanged", (r) =>
 );
 socket.on("gameOver", (msg) => Swal.fire({ title: "BİTTİ", text: msg }));
 
+socket.on("backToSelect", (data) => {
+  clearInterval(timerInterval);
+  showScreen("gameSelect");
+  document.getElementById("scoreboard-panel").style.display = "none";
+
+  // Oyuncu listesini göster
+  const container = document.getElementById("select-players-container");
+  const box = document.getElementById("select-players-box");
+  if (container && box && data.players) {
+    box.innerHTML = "";
+    data.players.forEach((p) => {
+      const icon = p.gender === "female" ? "👩" : "👨";
+      const cls = p.gender === "female" ? "spec-female" : "spec-male";
+      const span = document.createElement("span");
+      span.className = cls;
+      span.innerText = `${icon} ${p.username}`;
+      box.appendChild(span);
+    });
+    container.classList.remove("hidden");
+  }
+});
+
 // --- İSİM ŞEHİR SOCKET ---
 socket.on("isimSehirStart", (data) => {
   window._currentGameType = "isimSehir";

@@ -621,6 +621,47 @@ button:active {
   opacity: 0.7;
 }
 
+/* ======= LOBİ OYUNCU KUTUSU (OYUN SEÇİM) ======= */
+.select-players-container {
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 18px;
+  text-align: center;
+  color: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+.select-players-container h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: #fff;
+}
+.select-players-box {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.select-players-box span {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.select-players-box span.spec-male {
+  background: rgba(52, 152, 219, 0.3);
+  border: 1px solid rgba(52, 152, 219, 0.5);
+  color: #8ecbf5;
+}
+.select-players-box span.spec-female {
+  background: rgba(233, 30, 99, 0.3);
+  border: 1px solid rgba(233, 30, 99, 0.5);
+  color: #f5a0c0;
+}
+
 /* ======= HARF ÇARKI ======= */
 .letter-display {
   text-align: center;

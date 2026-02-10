@@ -320,6 +320,9 @@ function updateCategoryTabs(activeCategory) {
 socket.on("connect", () => {
   myPlayerId = socket.id;
 });
+socket.on("gameError", (msg) => {
+  Swal.fire({ title: "Hata", text: msg, icon: "error" });
+});
 socket.on("roomCreated", (id) => {
   currentRoom = id;
   showScreen("waiting");

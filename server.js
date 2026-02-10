@@ -434,7 +434,7 @@ io.on("connection", (socket) => {
       const newPlayer = { id: socket.id, username, gender, isHost: false };
       if (room.gameMode === "tek") {
         if (room.maxPlayers > 0 && room.players.length >= room.maxPlayers) {
-          socket.emit("error", "Oda dolu!");
+          socket.emit("gameError", "Oda dolu!");
           return;
         }
         room.players.push(newPlayer);
@@ -445,7 +445,7 @@ io.on("connection", (socket) => {
       socket.emit("joinedRoom", roomId);
       emitLobbyUpdate(roomId);
     } else {
-      socket.emit("error", "Oda bulunamadı!");
+      socket.emit("gameError", "Oda bulunamadı!");
     }
   });
 
@@ -476,11 +476,11 @@ io.on("connection", (socket) => {
     // --- IMPOSTOR OYUNU ---
     if (room.gameType === "imposter") {
       if (room.gameMode !== "tek") {
-        socket.emit("error", "Imposter sadece tek modda oynanabilir!");
+        socket.emit("gameError", "Imposter sadece tek modda oynanabilir!");
         return;
       }
       if (!room.players || room.players.length < 3) {
-        socket.emit("error", "Imposter için en az 3 oyuncu gerekli!");
+        socket.emit("gameError", "Imposter için en az 3 oyuncu gerekli!");
         return;
       }
       room.gameStatus = "playing";
@@ -505,11 +505,11 @@ io.on("connection", (socket) => {
     // TEK MOD
     if (room.gameMode === "tek") {
       if (room.gameType !== "pictionary") {
-        socket.emit("error", "Tek modda sadece Resim Çiz oynanabilir!");
+        socket.emit("gameError", "Tek modda sadece Resim Çiz oynanabilir!");
         return;
       }
       if (room.players.length < 2) {
-        socket.emit("error", "En az 2 oyuncu gerekli!");
+        socket.emit("gameError", "En az 2 oyuncu gerekli!");
         return;
       }
       room.gameStatus = "playing";
@@ -548,7 +548,7 @@ io.on("connection", (socket) => {
     });
 
     if (validPairs.length < 1) {
-      socket.emit("error", "Yeterli takım yok!");
+      socket.emit("gameError", "Yeterli takım yok!");
       return;
     }
 

@@ -575,6 +575,7 @@ socket.on("gameOver", (msg) => Swal.fire({ title: "BİTTİ", text: msg }));
 
 socket.on("backToSelect", (data) => {
   clearInterval(timerInterval);
+  Swal.close();
   showScreen("gameSelect");
   document.getElementById("scoreboard-panel").style.display = "none";
 

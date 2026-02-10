@@ -1374,7 +1374,10 @@ function endPictionaryRound(roomId) {
 
   if (room.gameMode === "tek") {
     room.currentDrawerIndex++;
-    room.currentRound++;
+    // Tüm oyuncular çizdikten sonra tur artsın
+    if (room.currentDrawerIndex % room.soloPlayers.length === 0) {
+      room.currentRound++;
+    }
   } else {
     room.pictionaryDrawerToggle++;
     // Her iki kişi de çizdikten sonra tur artsın
@@ -1421,7 +1424,10 @@ function endPictionaryRound(roomId) {
   }
 
   // Sadece tur gerçekten değiştiğinde göster
-  if (room.gameMode === "tek" || room.pictionaryDrawerToggle % 2 === 0) {
+  const roundChanged = room.gameMode === "tek"
+    ? (room.currentDrawerIndex % room.soloPlayers.length === 0)
+    : (room.pictionaryDrawerToggle % 2 === 0);
+  if (roundChanged) {
     io.to(roomId).emit("roundChanged", room.currentRound);
   }
   setTimeout(() => {

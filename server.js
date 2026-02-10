@@ -1086,8 +1086,22 @@ function nextTurn(roomId) {
 
     const nextP = room.pairs[room.currentPairIndex];
     if (nextP.isEliminated) {
-      if (room.pairs.every((p) => p.isEliminated)) {
+      const alive = room.pairs.filter((p) => !p.isEliminated);
+      if (alive.length === 0) {
         io.to(roomId).emit("gameOver", "Herkes Elendi! 💀");
+        room.gameStatus = "finished";
+        setTimeout(() => {
+          room.gameStatus = "waiting";
+          emitBackToSelect(roomId);
+        }, 5000);
+        return;
+      }
+      if (alive.length === 1) {
+        const winner = alive[0];
+        io.to(roomId).emit(
+          "gameOver",
+          `${winner.teamName} kazandı! 🏆 Tebrikler ${winner.p1.username} & ${winner.p2.username}! 🎉`,
+        );
         room.gameStatus = "finished";
         setTimeout(() => {
           room.gameStatus = "waiting";

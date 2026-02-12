@@ -77,43 +77,48 @@ function createRoom() {
 
 function selectMode(mode) {
   selectedMode = mode;
-  document
-    .getElementById("mode-btn-cift")
-    .classList.toggle("active", mode === "cift");
-  document
-    .getElementById("mode-btn-tek")
-    .classList.toggle("active", mode === "tek");
+  document.getElementById("mode-btn-cift").classList.toggle("active", mode === "cift");
+  document.getElementById("mode-btn-duo").classList.toggle("active", mode === "duo");
+  document.getElementById("mode-btn-tek").classList.toggle("active", mode === "tek");
 
   const telepati = document.getElementById("card-telepati");
   const isimSehir = document.getElementById("card-isimSehir");
   const ciftCount = document.getElementById("cift-count");
   const tabu = document.getElementById("card-tabu");
   const imposter = document.getElementById("card-imposter");
-
-  // Sadece tek modunda imposter kartını göster, çiftte tamamen DOM'dan kaldır
-  if (imposter) {
-    if (mode === "tek") {
-      imposter.style.display = "";
-      imposter.classList.remove("hidden");
-    } else {
-      imposter.style.display = "none";
-    }
-  }
-
+  const pictionary = document.getElementById("card-pictionary");
   const tekCount = document.getElementById("tek-count");
 
-  if (mode === "tek") {
-    telepati.style.display = "none";
-    isimSehir.style.display = "none";
-    tabu.style.display = "none";
-    ciftCount.style.display = "none";
-    tekCount.style.display = "";
-  } else {
+  // Tüm kartları ve sayaçları gizle
+  telepati.style.display = "none";
+  isimSehir.style.display = "none";
+  tabu.style.display = "none";
+  pictionary.style.display = "none";
+  if (imposter) imposter.style.display = "none";
+  ciftCount.style.display = "none";
+  tekCount.style.display = "none";
+
+  if (mode === "cift") {
+    // Çiftler modu: takımlar arası yarış
     telepati.style.display = "";
     isimSehir.style.display = "";
     tabu.style.display = "";
+    pictionary.style.display = "";
     ciftCount.style.display = "";
-    tekCount.style.display = "none";
+  } else if (mode === "duo") {
+    // Başbaşa modu: tek çift kendi aralarında
+    telepati.style.display = "";
+    isimSehir.style.display = "";
+    tabu.style.display = "";
+    pictionary.style.display = "";
+  } else if (mode === "tek") {
+    // Tek modu: herkes bireysel
+    pictionary.style.display = "";
+    if (imposter) {
+      imposter.style.display = "";
+      imposter.classList.remove("hidden");
+    }
+    tekCount.style.display = "";
   }
 }
 
@@ -139,6 +144,8 @@ function selectGame(type) {
       return;
     }
     pendingRoomData.coupleCount = ciftVal;
+  } else if (selectedMode === "duo") {
+    pendingRoomData.coupleCount = 1;
   } else {
     pendingRoomData.maxPlayers =
       document.getElementById("tekCountSelect").value;

@@ -1073,12 +1073,12 @@ button:active {
 }
 .mode-btn {
   flex: 1;
-  padding: 10px 16px;
+  padding: 10px 8px;
   border: none;
   background: transparent;
   cursor: pointer;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.5);
   font-weight: 600;
   transition: all 0.3s;

@@ -4,8 +4,12 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
     <title>Couple Game</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;600;800&display=swap"
@@ -132,6 +136,7 @@
               OYUNU BAŞLAT 🚀
             </button>
           </div>
+          <button class="btn-back" onclick="goToMainMenu()" style="margin-top:10px">Ana Menü</button>
           <div id="member-message" class="hidden">
             <p>Kurucunun oyunu başlatması bekleniyor...</p>
           </div>
@@ -146,6 +151,7 @@
       <!-- OYUN SEÇİM EKRANI -->
       <div id="game-select-screen" class="screen">
         <div class="game-select-container">
+          <button class="btn-back-corner" onclick="goToMainMenu()">Geri</button>
           <h2 class="select-title">Oyun Seç</h2>
           <div class="mode-toggle-container" id="mode-toggle">
             <button
@@ -707,7 +713,30 @@
         </div>
       </div>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="socket.io.min.js"></script>
     <script src="client.js"></script>
+    <script>
+      // Capacitor plugin'lerini başlat (native ortamda)
+      if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        document.addEventListener('DOMContentLoaded', async () => {
+          try {
+            const { StatusBar } = window.Capacitor.Plugins;
+            await StatusBar.setStyle({ style: 'DARK' });
+            await StatusBar.setBackgroundColor({ color: '#1a1a2e' });
+          } catch (e) {}
+
+          try {
+            const { Keyboard } = window.Capacitor.Plugins;
+            Keyboard.setAccessoryBarVisible({ isVisible: true });
+            Keyboard.setScroll({ isDisabled: false });
+          } catch (e) {}
+
+          try {
+            const { SplashScreen } = window.Capacitor.Plugins;
+            await SplashScreen.hide();
+          } catch (e) {}
+        });
+      }
+    </script>
   </body>
 </html>

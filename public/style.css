@@ -8,6 +8,7 @@ body {
   font-family: "Poppins", sans-serif;
   background: url("photos/arkaplan2.jpg") no-repeat center center fixed;
   background-size: cover;
+  background-color: #1a1a2e;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -23,6 +24,8 @@ body::before {
   max-width: 500px;
   margin: 0 auto;
   padding: 20px 15px;
+  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
 }
 
 .hidden {
@@ -60,8 +63,8 @@ header {
 /* ======= SKOR TABLOSU ======= */
 .scoreboard-panel {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: calc(20px + env(safe-area-inset-top));
+  left: calc(20px + env(safe-area-inset-left));
   width: 230px;
   background: rgba(30, 30, 50, 0.92);
   padding: 18px;
@@ -587,6 +590,20 @@ button:active {
 /* ======= OYUN SEÇİM EKRANI ======= */
 .game-select-container {
   text-align: center;
+  position: relative;
+}
+.btn-back-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 .select-title {
   color: #fff;
@@ -1106,8 +1123,8 @@ button:active {
 .bear-bubble {
   position: absolute;
   top: -38px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  transform: none;
   background: #fff;
   color: #5a3e2b;
   font-size: 0.7rem;
@@ -1123,8 +1140,8 @@ button:active {
   content: "";
   position: absolute;
   bottom: -7px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px;
+  transform: none;
   width: 0;
   height: 0;
   border-left: 7px solid transparent;
@@ -1135,8 +1152,8 @@ button:active {
   content: "";
   position: absolute;
   bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 18px;
+  transform: none;
   width: 0;
   height: 0;
   border-left: 9px solid transparent;
@@ -1148,15 +1165,15 @@ button:active {
 }
 @keyframes bubblePop {
   0% {
-    transform: translateX(-50%) scale(0);
+    transform: scale(0);
     opacity: 0;
   }
   70% {
-    transform: translateX(-50%) scale(1.1);
+    transform: scale(1.1);
     opacity: 1;
   }
   100% {
-    transform: translateX(-50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
 }
@@ -1757,4 +1774,21 @@ button:active {
     font-size: 0.6rem;
     top: -34px;
   }
+}
+
+/* ======= CAPACITOR / MOBİL SAFE AREA ======= */
+.input-wrapper,
+.pic-guess-area,
+.tabu-input-area {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Klavye açıkken input'ların görünür kalması */
+html {
+  scroll-padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Capacitor ortamında body scroll davranışı */
+html.keyboard-open body {
+  overflow-y: auto;
 }

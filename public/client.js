@@ -1,4 +1,8 @@
-const socket = io();
+// Capacitor/mobil ortamda uzak sunucuya bağlan, web'de mevcut sunucuyu kullan
+const SERVER_URL = window.location.hostname === 'localhost' || window.location.protocol === 'file:'
+  ? 'https://couplegame-production.up.railway.app'
+  : window.location.origin;
+const socket = io(SERVER_URL);
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -218,12 +222,37 @@ function copyRoomCode() {
   });
 }
 
-function shareWhatsApp() {
+async function shareWhatsApp() {
   const code = document.getElementById("displayRoomCode").innerText;
-  const url = window.location.origin;
+  const url = 'https://couplegame-production.up.railway.app';
   const message = `Couple Game'e gel! 💖\n\nOda Kodu: ${code}\n\n${url}`;
+
+  // Capacitor native share varsa onu kullan
+  if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+    try {
+      const { Share } = window.Capacitor.Plugins;
+      await Share.share({
+        title: 'Couple Game',
+        text: message,
+        dialogTitle: 'Arkadaşlarını davet et'
+      });
+      return;
+    } catch (e) {
+      // fallback to WhatsApp URL
+    }
+  }
+
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
   window.open(whatsappUrl, "_blank");
+}
+
+function goToMainMenu() {
+  if (currentRoom) {
+    socket.emit("leaveRoom", currentRoom);
+  }
+  currentRoom = null;
+  pendingRoomData = null;
+  showScreen("lobby");
 }
 
 function joinTeamSlot(idx, slot) {

@@ -119,15 +119,33 @@ function selectMode(mode) {
 
 function selectGame(type) {
   if (!pendingRoomData) return;
-  pendingRoomData.gameType = type;
-  pendingRoomData.gameMode = selectedMode;
-  if (selectedMode === "tek") {
+
+  if (selectedMode === "cift") {
+    const ciftVal = document.getElementById("ciftCountSelect").value;
+    if (!ciftVal) {
+      Swal.fire({
+        html: `<div style="font-size:3.5rem;margin-bottom:10px">👆</div>
+               <div style="font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:6px">Dur bir dakika!</div>
+               <div style="font-size:0.95rem;color:rgba(255,255,255,0.7)">Önce kaç çift oynayacak onu seç 💑</div>`,
+        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+        color: '#fff',
+        showConfirmButton: true,
+        confirmButtonText: 'Anladım! 👍',
+        confirmButtonColor: '#ff6b6b',
+        timer: 3000,
+        timerProgressBar: true,
+        showClass: { popup: 'animate__animated animate__shakeX' },
+      });
+      return;
+    }
+    pendingRoomData.coupleCount = ciftVal;
+  } else {
     pendingRoomData.maxPlayers =
       document.getElementById("tekCountSelect").value;
-  } else {
-    pendingRoomData.coupleCount =
-      document.getElementById("ciftCountSelect").value;
   }
+
+  pendingRoomData.gameType = type;
+  pendingRoomData.gameMode = selectedMode;
 
   // Oyun adını göster
   const names = {

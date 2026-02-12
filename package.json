@@ -1,7 +1,7 @@
 {
-  "name": "couple-game",
+  "name": "duoduels",
   "version": "1.0.0",
-  "description": "Couple Game",
+  "description": "DuoDuels",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

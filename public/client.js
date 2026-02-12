@@ -88,6 +88,7 @@ function selectMode(mode) {
   const imposter = document.getElementById("card-imposter");
   const pictionary = document.getElementById("card-pictionary");
   const tekCount = document.getElementById("tek-count");
+  const duoCount = document.getElementById("duo-count");
 
   // Tüm kartları ve sayaçları gizle
   telepati.style.display = "none";
@@ -96,6 +97,7 @@ function selectMode(mode) {
   pictionary.style.display = "none";
   if (imposter) imposter.style.display = "none";
   ciftCount.style.display = "none";
+  duoCount.style.display = "none";
   tekCount.style.display = "none";
 
   if (mode === "cift") {
@@ -109,8 +111,8 @@ function selectMode(mode) {
     // Başbaşa modu: tek çift kendi aralarında
     telepati.style.display = "";
     isimSehir.style.display = "";
-    tabu.style.display = "";
     pictionary.style.display = "";
+    duoCount.style.display = "";
   } else if (mode === "tek") {
     // Tek modu: herkes bireysel
     pictionary.style.display = "";
@@ -147,8 +149,24 @@ function selectGame(type) {
   } else if (selectedMode === "duo") {
     pendingRoomData.coupleCount = 1;
   } else {
-    pendingRoomData.maxPlayers =
-      document.getElementById("tekCountSelect").value;
+    const tekVal = document.getElementById("tekCountSelect").value;
+    if (!tekVal) {
+      Swal.fire({
+        html: `<div style="font-size:3.5rem;margin-bottom:10px">👆</div>
+               <div style="font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:6px">Dur bir dakika!</div>
+               <div style="font-size:0.95rem;color:rgba(255,255,255,0.7)">Önce kaç kişi oynayacak onu seç 🧑‍🤝‍🧑</div>`,
+        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+        color: '#fff',
+        showConfirmButton: true,
+        confirmButtonText: 'Anladım! 👍',
+        confirmButtonColor: '#ff6b6b',
+        timer: 3000,
+        timerProgressBar: true,
+        showClass: { popup: 'animate__animated animate__shakeX' },
+      });
+      return;
+    }
+    pendingRoomData.maxPlayers = tekVal;
   }
 
   pendingRoomData.gameType = type;
@@ -250,14 +268,14 @@ function copyRoomCode() {
 async function shareWhatsApp() {
   const code = document.getElementById("displayRoomCode").innerText;
   const url = 'https://couplegame-production.up.railway.app';
-  const message = `Couple Game'e gel! 💖\n\nOda Kodu: ${code}\n\n${url}`;
+  const message = `DuoDuels'a gel! 💖\n\nOda Kodu: ${code}\n\n${url}`;
 
   // Capacitor native share varsa onu kullan
   if (window.Capacitor && window.Capacitor.isNativePlatform()) {
     try {
       const { Share } = window.Capacitor.Plugins;
       await Share.share({
-        title: 'Couple Game',
+        title: 'DuoDuels',
         text: message,
         dialogTitle: 'Arkadaşlarını davet et'
       });

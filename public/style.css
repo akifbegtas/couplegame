@@ -6,16 +6,40 @@
 
 body {
   font-family: "Poppins", sans-serif;
-  background: url("photos/arkaplan2.jpg") no-repeat center center fixed;
-  background-size: cover;
   background-color: #1a1a2e;
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Scrollbar gizle */
+body::-webkit-scrollbar,
+html::-webkit-scrollbar,
+.main-container::-webkit-scrollbar {
+  display: none;
+}
+body, html, .main-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 body::before {
   content: "";
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url("photos/arkaplan2.jpg") no-repeat center center;
+  background-size: cover;
+  z-index: -2;
+}
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   z-index: -1;
 }
@@ -24,8 +48,11 @@ body::before {
   max-width: 500px;
   margin: 0 auto;
   padding: 20px 15px;
-  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-top: calc(50px + env(safe-area-inset-top));
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .hidden {
@@ -103,6 +130,14 @@ header {
 .screen.active {
   display: block;
   animation: fadeSlideUp 0.5s ease-out;
+}
+#lobby-screen.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 50px - env(safe-area-inset-top));
+  overflow: hidden;
+  touch-action: none;
 }
 @keyframes fadeSlideUp {
   from {
@@ -1443,6 +1478,8 @@ button:active {
   .main-container {
     max-width: 100%;
     padding: 10px 8px;
+    padding-top: calc(20px + env(safe-area-inset-top));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
   header {
     margin-bottom: 15px;
@@ -1786,9 +1823,7 @@ button:active {
 /* Klavye açıkken input'ların görünür kalması */
 html {
   scroll-padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* Capacitor ortamında body scroll davranışı */
-html.keyboard-open body {
-  overflow-y: auto;
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100%;
 }

@@ -10,7 +10,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
-    <title>Couple Game</title>
+    <title>DuoDuels</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link
       href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;600;800&display=swap"
       rel="stylesheet"
@@ -31,7 +34,7 @@
     <div class="main-container">
       <header>
         <h1 class="game-title">
-          Couple Game <span id="interactive-heart">💖</span>
+          DuoDuels <span id="interactive-heart">💖</span>
         </h1>
       </header>
 
@@ -194,6 +197,21 @@
               <option value="5">5 Çift (10 Kişi)</option>
             </select>
           </div>
+          <div id="duo-count" style="margin: 10px auto; text-align: center; display: none">
+            <label style="color: #fff; font-weight: 600">Çift Sayısı:</label>
+            <select
+              disabled
+              style="
+                padding: 6px 12px;
+                border-radius: 8px;
+                border: none;
+                font-size: 1rem;
+                opacity: 0.8;
+              "
+            >
+              <option selected>1 Çift (2 Kişi)</option>
+            </select>
+          </div>
           <div id="tek-count" style="margin: 10px auto; text-align: center; display: none">
             <label style="color: #fff; font-weight: 600">Kişi Sayısı:</label>
             <select
@@ -205,9 +223,10 @@
                 font-size: 1rem;
               "
             >
+              <option value="" disabled selected>Kişi Sayısını Seçiniz</option>
               <option value="2">2 Kişi</option>
               <option value="3">3 Kişi</option>
-              <option value="4" selected>4 Kişi</option>
+              <option value="4">4 Kişi</option>
               <option value="5">5 Kişi</option>
               <option value="6">6 Kişi</option>
               <option value="7">7 Kişi</option>

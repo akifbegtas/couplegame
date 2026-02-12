@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.couplegame.app',
-  appName: 'Couple Game',
+  appId: 'com.duoduels.app',
+  appName: 'DuoDuels',
   webDir: 'public',
   server: {
     // Production'da bunu kaldır, sadece local test için
@@ -30,7 +30,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
-    scheme: 'Couple Game',
+    scheme: 'DuoDuels',
     backgroundColor: '#1a1a2e'
   },
   android: {

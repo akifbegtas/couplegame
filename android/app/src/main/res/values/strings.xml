@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Couple Game</string>
-    <string name="title_activity_main">Couple Game</string>
-    <string name="package_name">com.couplegame.app</string>
-    <string name="custom_url_scheme">com.couplegame.app</string>
+    <string name="app_name">DuoDuels</string>
+    <string name="title_activity_main">DuoDuels</string>
+    <string name="package_name">com.duoduels.app</string>
+    <string name="custom_url_scheme">com.duoduels.app</string>
 </resources>

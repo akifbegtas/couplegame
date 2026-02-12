@@ -1,7 +1,11 @@
 // Tüm ortamlarda sunucuya bağlan
-const SERVER_URL = window.location.hostname === 'duoduels.com' || window.location.hostname === 'www.duoduels.com'
+const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+const isLocalDev = !isNative && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const SERVER_URL = isLocalDev
   ? window.location.origin
-  : 'https://duoduels.onrender.com';
+  : (window.location.hostname === 'duoduels.com' || window.location.hostname === 'www.duoduels.com')
+    ? window.location.origin
+    : 'https://duoduels.onrender.com';
 const socket = io(SERVER_URL);
 
 function escapeHtml(str) {
@@ -17,9 +21,7 @@ let timerInterval = null;
 let pendingRoomData = null;
 let letterAnimationDone = true;
 let pendingCategoryData = null;
-let waitingForKeyPress = false;
 let currentTargetLetter = null;
-let _letterInputHandler = null;
 let selectedMode = "cift";
 let _listenersAttached = {};
 
@@ -353,18 +355,39 @@ function startTimer(sec, timerElId) {
 }
 
 // --- İSİM ŞEHİR ---
-function sendIsimSehirWord(auto) {
-  const inp = document.getElementById("isWordInput");
-  let val = inp.value;
-  if (auto && !val) val = "⏰";
-  if (val) {
-    socket.emit("submitIsimSehirWord", { roomId: currentRoom, word: val });
-    inp.value = "";
+let _isimSehirSubmitted = false;
+
+function sendAllIsimSehir(auto) {
+  // Çift gönderim koruması
+  if (_isimSehirSubmitted) return;
+
+  const answers = {};
+  const cats = ["isim", "sehir", "hayvan"];
+  const catMap = { isim: "İSİM", sehir: "ŞEHİR", hayvan: "HAYVAN" };
+
+  cats.forEach((c) => {
+    const inp = document.getElementById("isInput-" + c);
+    let val = inp.value.trim();
+    // Yanlış harfle başlayan cevabı sil (auto'da da temizle)
+    if (val && currentTargetLetter && val.toLocaleUpperCase("tr-TR").charAt(0) !== currentTargetLetter) {
+      val = "";
+      inp.value = "";
+    }
+    if (!val) val = "⏰";
+    answers[catMap[c]] = val;
     inp.disabled = true;
-    document.getElementById("isSendBtn").disabled = true;
-    document.getElementById("is-left-status").innerText = "Gönderildi!";
-    clearInterval(timerInterval);
-  }
+  });
+
+  _isimSehirSubmitted = true;
+  socket.emit("submitAllIsimSehir", { roomId: currentRoom, answers: answers });
+  document.getElementById("isSendAllBtn").disabled = true;
+  document.getElementById("is-left-status").innerText = "Gönderildi!";
+  clearInterval(timerInterval);
+}
+
+// Eski fonksiyon uyumluluk için
+function sendIsimSehirWord(auto) {
+  sendAllIsimSehir(auto);
 }
 
 function animateLetter(targetLetter, callback) {
@@ -536,6 +559,7 @@ socket.on("turnStarted", (data) => {
   const iamP2 = myPlayerId === data.p2.id;
 
   amIPlaying = iamP1 || iamP2;
+  window._iamP2 = iamP2;
 
   const infoBar = document.getElementById("turn-info-bar");
   const inpArea = document.getElementById("input-area-left");
@@ -609,34 +633,65 @@ socket.on("revealOneMove", (data) => {
   }
 });
 
+function showMatchOverlay(leftName, rightName, leftWord, rightWord, isMatch, callback, categoryLabel) {
+  const overlay = document.createElement("div");
+  overlay.className = "match-overlay";
+  overlay.innerHTML = `
+    ${categoryLabel ? `<div class="match-category-label">${escapeHtml(categoryLabel)}</div>` : ''}
+    <div class="match-player-names">
+      <span class="match-player-name">${escapeHtml(leftName)}</span>
+      <span class="match-player-name">${escapeHtml(rightName)}</span>
+    </div>
+    <div class="match-words-row">
+      <div class="match-word-card word-left">${escapeHtml(leftWord)}</div>
+      <div class="match-vs">VS</div>
+      <div class="match-word-card word-right">${escapeHtml(rightWord)}</div>
+    </div>
+    <div class="match-result-badge ${isMatch ? 'result-success' : 'result-fail'}">
+      ${isMatch ? 'EŞLEŞME! ✅' : 'EŞLEŞMEDİ ❌'}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => {
+    overlay.classList.add("fade-out");
+    setTimeout(() => {
+      overlay.remove();
+      if (callback) callback();
+    }, 400);
+  }, 2000);
+}
+
 socket.on("spectatorUpdate", (res) => {
   clearInterval(timerInterval);
   const div = document.createElement("div");
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
   div.innerHTML = `${escapeHtml(res.p1Word)} - ${escapeHtml(res.p2Word)} ${res.match ? "✅" : "❌"}`;
 
-  if (window._currentGameType === "isimSehir") {
-    document.getElementById("is-game-log").prepend(div);
-    if (!amIPlaying) {
-      document.getElementById("is-spectator-left").innerText = res.p1Word;
-      document.getElementById("is-spectator-right").innerText = res.p2Word;
-    }
-  } else {
+  {
     document.getElementById("game-log").prepend(div);
+    const lName = document.getElementById("leftName").innerText;
+    const rName = document.getElementById("rightName").innerText;
+    const myWord = window._iamP2 ? res.p2Word : res.p1Word;
+    const partnerWord = window._iamP2 ? res.p1Word : res.p2Word;
     if (!amIPlaying) {
       document.getElementById("spectator-view-left").innerText = res.p1Word;
       document.getElementById("spectator-view-right").innerText = res.p2Word;
-    } else if (!res.match) {
-      setTimeout(() => {
-        const inp = document.getElementById("wordInput");
-        inp.value = "";
-        inp.disabled = false;
-        document.getElementById("sendWordBtn").disabled = false;
-        inp.focus();
-        document.getElementById("left-status").innerText = "Tekrar...";
-        document.getElementById("right-status").innerText = "Yazıyor...";
-        startTimer(window._roundTime);
-      }, 1000);
+      showMatchOverlay(lName, rName, res.p1Word, res.p2Word, res.match);
+    } else {
+      document.getElementById("left-status").innerText = myWord;
+      document.getElementById("right-status").innerText = partnerWord;
+      showMatchOverlay(lName, rName, myWord, partnerWord, res.match, () => {
+        if (!res.match) {
+          const inp = document.getElementById("wordInput");
+          inp.value = "";
+          inp.disabled = false;
+          document.getElementById("sendWordBtn").disabled = false;
+          inp.focus();
+          document.getElementById("left-status").innerText = "Tekrar...";
+          document.getElementById("right-status").innerText = "Yazıyor...";
+          startTimer(window._roundTime);
+        }
+      });
     }
   }
 });
@@ -792,64 +847,28 @@ socket.on("isimSehirStart", (data) => {
     showConfirmButton: false,
   });
 
-  if (!_listenersAttached.isWordInput) {
-    document.getElementById("isWordInput").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendIsimSehirWord();
+  if (!_listenersAttached.isAllInputs) {
+    ["isim", "sehir", "hayvan"].forEach((c) => {
+      document.getElementById("isInput-" + c).addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendAllIsimSehir();
+      });
     });
-    _listenersAttached.isWordInput = true;
+    _listenersAttached.isAllInputs = true;
   }
 });
 
 socket.on("letterSelected", (data) => {
   letterAnimationDone = false;
-  waitingForKeyPress = true;
   currentTargetLetter = data.letter;
   pendingCategoryData = null;
 
-  const inp = document.getElementById("isWordInput");
-  const inpArea = document.getElementById("is-input-area");
-
   animateLetter(data.letter, () => {
     letterAnimationDone = true;
-    // Animasyon bitti, placeholder olarak harfi koy
-    inp.value = "";
-    inp.disabled = false;
-    inp.placeholder = data.letter;
-    inp.focus();
-    // categoryStart zaten geldiyse timer'ı şimdi başlat
+    // categoryStart/allCategoriesStart zaten geldiyse timer'ı şimdi başlat
     if (pendingCategoryData) {
       startTimer(window._roundTime, "is-timer");
     }
   });
-
-  // Önceki listener'ı kaldır
-  if (_letterInputHandler) {
-    inp.removeEventListener("input", _letterInputHandler);
-  }
-
-  // Input'a yazılan harfi kontrol et
-  _letterInputHandler = function(e) {
-    const typed = inp.value.toLocaleUpperCase("tr-TR");
-    if (!letterAnimationDone) return;
-
-    if (typed === currentTargetLetter) {
-      // Doğru harf girildi, yazılan harfi koru ve devam et
-      waitingForKeyPress = false;
-      inp.removeEventListener("input", _letterInputHandler);
-      _letterInputHandler = null;
-      if (pendingCategoryData) {
-        inp.placeholder = pendingCategoryData.category + "...";
-      } else {
-        inp.placeholder = "Cevap...";
-      }
-    } else if (typed.length > 0) {
-      // Yanlış harf, titret ve temizle
-      inp.value = "";
-      inp.classList.add("pic-guess-wrong");
-      setTimeout(() => inp.classList.remove("pic-guess-wrong"), 500);
-    }
-  };
-  inp.addEventListener("input", _letterInputHandler);
 
   if (data.currentRound) {
     document.getElementById("is-round-display").innerText =
@@ -858,69 +877,122 @@ socket.on("letterSelected", (data) => {
 });
 
 socket.on("categoryStart", (data) => {
-  // UI'ı hemen kur (paneller, renkler, isimler)
-  setupCategoryUI(data);
+  // Eski uyumluluk - yeni akışta kullanılmıyor
   pendingCategoryData = data;
-
-  if (!letterAnimationDone) {
-    // Animasyon bekleniyor, timer'ı sonra başlat
-    return;
-  }
-  // Animasyon bitti, timer'ı hemen başlat
-  startTimer(window._roundTime, "is-timer");
+  if (letterAnimationDone) startTimer(window._roundTime, "is-timer");
 });
 
-function setupCategoryUI(data) {
-  updateCategoryTabs(data.category);
-  document.getElementById("is-game-log").innerHTML = "";
-
-  document.getElementById("isLeftName").innerText = data.p1.username;
-  document.getElementById("isRightName").innerText = data.p2.username;
-
-  const p1 = document.getElementById("is-left-panel");
-  const p2 = document.getElementById("is-right-panel");
-  p1.className = `game-panel panel-${data.p1.gender}`;
-  p2.className = `game-panel panel-${data.p2.gender}`;
+socket.on("allCategoriesStart", (data) => {
+  pendingCategoryData = data;
+  _isimSehirSubmitted = false; // yeni tur, tekrar gönderebilir
 
   const iamP1 = myPlayerId === data.p1.id;
   const iamP2 = myPlayerId === data.p2.id;
   amIPlaying = iamP1 || iamP2;
+  window._iamP2 = iamP2;
+
+  // Kategori tab'larını hepsini aktif yap
+  document.querySelectorAll(".cat-tab").forEach((t) => t.classList.add("cat-active"));
+  document.getElementById("is-game-log").innerHTML = "";
 
   const infoBar = document.getElementById("isimSehir-turn-info");
-  const inpArea = document.getElementById("is-input-area");
-  const specL = document.getElementById("is-spectator-left");
-  const specR = document.getElementById("is-spectator-right");
+  const allInputs = document.getElementById("is-all-inputs");
+  const specArea = document.getElementById("is-spectator-area");
+
+  document.getElementById("isLeftName").innerText = data.p1.username;
+  document.getElementById("isRightName").innerText = data.p2.username;
+
+  const p1El = document.getElementById("is-left-panel");
+  const p2El = document.getElementById("is-right-panel");
+  p1El.className = `game-panel panel-${data.p1.gender}`;
+  p2El.className = `game-panel panel-${data.p2.gender}`;
 
   if (amIPlaying) {
-    infoBar.innerText = `${data.category} - SIRA SİZDE! 🚀`;
+    infoBar.innerText = "SIRA SİZDE! 🚀 Hepsini doldurun";
     infoBar.style.backgroundColor = "#27ae60";
-    inpArea.classList.remove("hidden");
-    specL.classList.add("hidden");
-    specR.classList.add("hidden");
+    allInputs.classList.remove("hidden");
+    specArea.classList.add("hidden");
 
-    const inp = document.getElementById("isWordInput");
-    inp.disabled = false;
-    document.getElementById("isSendBtn").disabled = false;
+    // Inputları sıfırla ve aç
+    ["isim", "sehir", "hayvan"].forEach((c) => {
+      const inp = document.getElementById("isInput-" + c);
+      inp.value = "";
+      inp.disabled = false;
+      inp.placeholder = data.letter + "...";
+      // Her inputa harf doğrulaması ekle - ilk harf her zaman kontrol edilir
+      const handler = function() {
+        const typed = inp.value.toLocaleUpperCase("tr-TR");
+        if (typed.length > 0 && typed.charAt(0) !== currentTargetLetter) {
+          inp.value = "";
+          inp.classList.add("pic-guess-wrong");
+          setTimeout(() => inp.classList.remove("pic-guess-wrong"), 400);
+        }
+      };
+      // Eski handler varsa kaldır
+      if (inp._letterHandler) inp.removeEventListener("input", inp._letterHandler);
+      inp.addEventListener("input", handler);
+      inp._letterHandler = handler;
+    });
+    document.getElementById("isSendAllBtn").disabled = false;
+    document.getElementById("is-left-status").innerText = "...";
+    document.getElementById("isInput-isim").focus();
 
     if (iamP2) {
       document.getElementById("isLeftName").innerText = data.p2.username;
       document.getElementById("isRightName").innerText = data.p1.username;
-      p1.className = `game-panel panel-${data.p2.gender}`;
-      p2.className = `game-panel panel-${data.p1.gender}`;
+      p1El.className = `game-panel panel-${data.p2.gender}`;
+      p2El.className = `game-panel panel-${data.p1.gender}`;
     }
   } else {
-    infoBar.innerText = `${data.category} - ${data.p1.username} & ${data.p2.username}`;
+    infoBar.innerText = `${data.p1.username} & ${data.p2.username} Oynuyor...`;
     infoBar.style.backgroundColor = "#34495e";
-    inpArea.classList.add("hidden");
-    specL.classList.remove("hidden");
-    specR.classList.remove("hidden");
-    specL.innerText = "🤔";
-    specR.innerText = "🤔";
+    allInputs.classList.add("hidden");
+    specArea.classList.remove("hidden");
+    document.getElementById("is-spectator-left").innerText = "🤔";
+    document.getElementById("is-spectator-right").innerText = "🤔";
+    document.getElementById("is-right-status").innerText = "Yazıyor...";
   }
-}
+
+  if (letterAnimationDone) startTimer(window._roundTime, "is-timer");
+});
 
 socket.on("isimSehirResult", (res) => {
   clearInterval(timerInterval);
+  addIsimSehirLogItem(res);
+});
+
+socket.on("isimSehirAllResults", (data) => {
+  console.log("[IS] isimSehirAllResults received:", data);
+  clearInterval(timerInterval);
+  const results = data.results;
+  const p1 = data.p1;
+  const p2 = data.p2;
+
+  // Her sonucu sırayla log'a ekle ve overlay göster
+  function showNext(index) {
+    if (index >= results.length) return;
+    const res = results[index];
+    addIsimSehirLogItem(res);
+
+    const leftName = amIPlaying && window._iamP2 ? p2.username : p1.username;
+    const rightName = amIPlaying && window._iamP2 ? p1.username : p2.username;
+    const leftWord = amIPlaying && window._iamP2 ? res.p2Word : res.p1Word;
+    const rightWord = amIPlaying && window._iamP2 ? res.p1Word : res.p2Word;
+
+    showMatchOverlay(
+      leftName,
+      rightName,
+      leftWord,
+      rightWord,
+      res.match,
+      () => { showNext(index + 1); },
+      res.category
+    );
+  }
+  showNext(0);
+});
+
+function addIsimSehirLogItem(res) {
   const div = document.createElement("div");
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
   let resultText = `${escapeHtml(res.category)}: ${escapeHtml(res.p1Word)} - ${escapeHtml(res.p2Word)} ${res.match ? "✅ +1" : "❌ 0"}`;
@@ -929,12 +1001,7 @@ socket.on("isimSehirResult", (res) => {
   }
   div.innerHTML = resultText;
   document.getElementById("is-game-log").prepend(div);
-
-  if (!amIPlaying) {
-    document.getElementById("is-spectator-left").innerText = res.p1Word;
-    document.getElementById("is-spectator-right").innerText = res.p2Word;
-  }
-});
+}
 
 socket.on("isimSehirGameOver", (msg) => {
   Swal.fire({ title: "BİTTİ", text: msg });
@@ -1661,6 +1728,13 @@ const screens = {
 function showScreen(name) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[name].classList.add("active");
+  // Oyun ekranlarında header'ı gizle (mobil yer kazanımı)
+  const gameScreens = ["game", "isimSehir", "pictionary", "tabu", "imposter"];
+  if (gameScreens.includes(name)) {
+    document.body.classList.add("game-active");
+  } else {
+    document.body.classList.remove("game-active");
+  }
 }
 
 // --- İMPOSTOR ---

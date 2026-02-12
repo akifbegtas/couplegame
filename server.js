@@ -687,72 +687,102 @@ io.on("connection", (socket) => {
     }
   });
 
-  // --- İSİM ŞEHİR: KELİME GÖNDERME ---
-  socket.on("submitIsimSehirWord", ({ roomId, word }) => {
+  // --- İSİM ŞEHİR: 3 CEVAP BİRDEN GÖNDERME ---
+  socket.on("submitAllIsimSehir", ({ roomId, answers }) => {
     const room = rooms[roomId];
-    if (!room || room.gameStatus !== "playing") return;
+    if (!room || room.gameStatus !== "playing") {
+      console.log("[IS] REJECTED: room not found or not playing", roomId);
+      return;
+    }
 
     const currentPair = room.pairs[room.currentPairIndex];
-    if (!currentPair) return;
-
-    if (socket.id !== currentPair.p1.id && socket.id !== currentPair.p2.id)
+    if (!currentPair) {
+      console.log("[IS] REJECTED: no currentPair at index", room.currentPairIndex);
       return;
+    }
 
-    const moveKey = currentPair.id + "_" + room.currentCategory;
-    if (!room.moves[moveKey]) room.moves[moveKey] = {};
+    if (socket.id !== currentPair.p1.id && socket.id !== currentPair.p2.id) {
+      console.log("[IS] REJECTED: socket not in pair", socket.id, "p1:", currentPair.p1.id, "p2:", currentPair.p2.id);
+      return;
+    }
 
-    let cleanWord = word ? word.trim().toLocaleUpperCase("tr-TR") : "⏰";
-    if (cleanWord === "") cleanWord = "⏰";
+    const who = socket.id === currentPair.p1.id ? "P1" : "P2";
+    console.log(`[IS] ${who} submitted:`, answers);
 
-    room.moves[moveKey][socket.id] = cleanWord;
+    // Her kategori için cevabı kaydet
+    CATEGORIES.forEach((cat) => {
+      const moveKey = currentPair.id + "_" + cat;
+      if (!room.moves[moveKey]) room.moves[moveKey] = {};
+      let cleanWord = answers[cat] ? answers[cat].trim().toLocaleUpperCase("tr-TR") : "⏰";
+      if (cleanWord === "") cleanWord = "⏰";
+      room.moves[moveKey][socket.id] = cleanWord;
+    });
 
     const partnerId =
       socket.id === currentPair.p1.id ? currentPair.p2.id : currentPair.p1.id;
     io.to(partnerId).emit("partnerSubmitted");
 
-    const who = socket.id === currentPair.p1.id ? "p1" : "p2";
-    io.to(roomId).emit("revealOneMove", { slot: who, word: cleanWord });
-
-    const w1 = room.moves[moveKey][currentPair.p1.id];
-    const w2 = room.moves[moveKey][currentPair.p2.id];
+    // İki oyuncu da gönderdiyse karşılaştır
+    const firstCatKey = currentPair.id + "_" + CATEGORIES[0];
+    const w1 = room.moves[firstCatKey][currentPair.p1.id];
+    const w2 = room.moves[firstCatKey][currentPair.p2.id];
+    console.log(`[IS] Check both submitted: w1=${w1}, w2=${w2}`);
 
     if (w1 !== undefined && w2 !== undefined) {
-      const isMatch = w1 === w2 && w1 !== "⏰";
+      // Tüm kategorileri karşılaştır
+      const allResults = [];
+      let matchCount = 0;
 
-      if (isMatch) {
-        room.isimSehirScores[currentPair.id]++;
-      }
+      CATEGORIES.forEach((cat) => {
+        const moveKey = currentPair.id + "_" + cat;
+        const p1w = room.moves[moveKey][currentPair.p1.id];
+        const p2w = room.moves[moveKey][currentPair.p2.id];
+        const isMatch = p1w === p2w && p1w !== "⏰";
+
+        if (isMatch) {
+          room.isimSehirScores[currentPair.id]++;
+          matchCount++;
+        }
+
+        const bothFailed = p1w === "⏰" && p2w === "⏰";
+        const example =
+          bothFailed && EXAMPLES[room.currentLetter]
+            ? EXAMPLES[room.currentLetter][cat]
+            : null;
+
+        allResults.push({
+          pairId: currentPair.id,
+          p1Word: p1w,
+          p2Word: p2w,
+          match: isMatch,
+          category: cat,
+          example: example,
+        });
+      });
 
       updateIsimSehirLeaderboard(roomId);
 
-      const bothFailed = w1 === "⏰" && w2 === "⏰";
-      const example =
-        bothFailed && EXAMPLES[room.currentLetter]
-          ? EXAMPLES[room.currentLetter][room.currentCategory]
-          : null;
+      if (matchCount > 0) {
+        io.to(currentPair.p1.id)
+          .to(currentPair.p2.id)
+          .emit("levelFinished", { success: true });
+      }
 
-      const result = {
-        pairId: currentPair.id,
-        p1Word: w1,
-        p2Word: w2,
-        match: isMatch,
-        category: room.currentCategory,
-        example: example,
-      };
-
+      // Tüm kategorilerin sonucunu toplu gönder
+      room.categoryIndex = CATEGORIES.length - 1; // Son kategoriye atla
+      console.log(`[IS] Both submitted! Results:`, allResults.map(r => `${r.category}: ${r.p1Word} vs ${r.p2Word} = ${r.match}`));
       setTimeout(() => {
-        io.to(roomId).emit("isimSehirResult", result);
-
-        if (isMatch) {
-          io.to(currentPair.p1.id)
-            .to(currentPair.p2.id)
-            .emit("levelFinished", { success: true });
-        }
-
-        // Move to next: category or pair or round
+        console.log(`[IS] Emitting isimSehirAllResults to room ${roomId}`);
+        io.to(roomId).emit("isimSehirAllResults", {
+          results: allResults,
+          p1: currentPair.p1,
+          p2: currentPair.p2,
+        });
+        // Animasyon süresi: sonuç başına 2.8sn + 0.5sn buffer
+        const animDelay = allResults.length * 2800 + 500;
         setTimeout(() => {
           nextIsimSehirStep(roomId);
-        }, 1500);
+        }, animDelay);
       }, 500);
     }
   });
@@ -1212,9 +1242,17 @@ function startIsimSehirRound(roomId) {
     totalRounds: room.roundCount,
   });
 
-  // Wait for animation then start first category for first pair
+  const pair = room.pairs[room.currentPairIndex];
+  // Harf animasyonu sonrası 3 inputu birden aç
   setTimeout(() => {
-    startCategory(roomId);
+    io.to(roomId).emit("allCategoriesStart", {
+      letter: letter,
+      categories: CATEGORIES,
+      p1: pair.p1,
+      p2: pair.p2,
+      currentRound: room.currentRound,
+      totalRounds: room.roundCount,
+    });
   }, 3500);
 }
 
@@ -1243,22 +1281,21 @@ function nextIsimSehirStep(roomId) {
   const room = rooms[roomId];
   if (!room) return;
 
-  // Next category
-  room.categoryIndex++;
-
-  if (room.categoryIndex < CATEGORIES.length) {
-    // Same pair, next category
-    startCategory(roomId);
-    return;
-  }
-
-  // All categories done for this pair, next pair
+  // Tüm kategoriler birden oynandı, sonraki pair'e geç
   room.categoryIndex = 0;
   room.currentPairIndex++;
 
   if (room.currentPairIndex < room.pairs.length) {
-    // New pair, start from first category
-    startCategory(roomId);
+    // Yeni pair, tüm kategorileri birden başlat
+    const pair = room.pairs[room.currentPairIndex];
+    io.to(roomId).emit("allCategoriesStart", {
+      letter: room.currentLetter,
+      categories: CATEGORIES,
+      p1: pair.p1,
+      p2: pair.p2,
+      currentRound: room.currentRound,
+      totalRounds: room.roundCount,
+    });
     return;
   }
 

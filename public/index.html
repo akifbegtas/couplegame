@@ -24,7 +24,14 @@
 
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body style="background-color:#fff;">
+    <!-- Animasyonlu Splash Screen (inline style: CSS yüklenmeden önce beyaz arka plan) -->
+    <div id="app-splash" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+      <img src="apple-touch-icon.png" alt="DuoDuels" class="splash-logo" />
+      <div class="splash-title">DuoDuels</div>
+      <div class="splash-dots"><span></span><span></span><span></span></div>
+    </div>
+
     <div id="scoreboard-panel" class="scoreboard-panel">
       <h3>📊 SKORLAR</h3>
       <div id="scoreboard-list"></div>
@@ -363,34 +370,35 @@
           <span id="cat-hayvan" class="cat-tab">HAYVAN</span>
         </div>
 
-        <div class="game-split-container">
+        <div id="is-all-inputs" class="is-all-inputs">
+          <div class="is-input-row">
+            <label>İSİM</label>
+            <input type="text" id="isInput-isim" placeholder="İsim..." autocomplete="off" />
+          </div>
+          <div class="is-input-row">
+            <label>ŞEHİR</label>
+            <input type="text" id="isInput-sehir" placeholder="Şehir..." autocomplete="off" />
+          </div>
+          <div class="is-input-row">
+            <label>HAYVAN</label>
+            <input type="text" id="isInput-hayvan" placeholder="Hayvan..." autocomplete="off" />
+          </div>
+          <button id="isSendAllBtn" class="btn-primary" onclick="sendAllIsimSehir()">GÖNDER</button>
+          <div id="is-left-status" class="status-text">...</div>
+        </div>
+
+        <div id="is-spectator-area" class="game-split-container hidden">
           <div id="is-left-panel" class="game-panel">
             <div class="panel-header"><h3 id="isLeftName">Oyuncu 1</h3></div>
             <div class="panel-content">
-              <div id="is-input-area" class="input-wrapper">
-                <input
-                  type="text"
-                  id="isWordInput"
-                  placeholder="Cevap..."
-                  autocomplete="off"
-                />
-                <button id="isSendBtn" onclick="sendIsimSehirWord()">
-                  GÖNDER
-                </button>
-              </div>
-              <div id="is-spectator-left" class="spectator-text hidden">🤔</div>
-              <div id="is-left-status" class="status-text">...</div>
+              <div id="is-spectator-left" class="spectator-text">🤔</div>
             </div>
           </div>
           <div id="is-right-panel" class="game-panel">
             <div class="panel-header"><h3 id="isRightName">Oyuncu 2</h3></div>
             <div class="panel-content center-content">
-              <div id="is-right-status" class="partner-waiting-animation">
-                Yazıyor...
-              </div>
-              <div id="is-spectator-right" class="spectator-text hidden">
-                🤔
-              </div>
+              <div id="is-right-status" class="partner-waiting-animation">Yazıyor...</div>
+              <div id="is-spectator-right" class="spectator-text hidden">🤔</div>
             </div>
           </div>
         </div>
@@ -762,6 +770,26 @@
             const { SplashScreen } = window.Capacitor.Plugins;
             await SplashScreen.hide();
           } catch (e) {}
+
+          // Animasyonlu splash'i 2.5sn sonra kaldır
+          setTimeout(() => {
+            const splash = document.getElementById('app-splash');
+            if (splash) {
+              splash.classList.add('splash-hide');
+              setTimeout(() => { splash.remove(); document.body.style.backgroundColor = '#1a1a2e'; }, 600);
+            }
+          }, 2500);
+        });
+      } else {
+        // Web ortamında da splash göster
+        document.addEventListener('DOMContentLoaded', () => {
+          setTimeout(() => {
+            const splash = document.getElementById('app-splash');
+            if (splash) {
+              splash.classList.add('splash-hide');
+              setTimeout(() => { splash.remove(); document.body.style.backgroundColor = '#1a1a2e'; }, 600);
+            }
+          }, 2000);
         });
       }
     </script>

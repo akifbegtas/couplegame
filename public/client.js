@@ -197,6 +197,9 @@ function selectGame(type) {
   } else if (type === "imposter") {
     timeLabel.style.display = "";
     timeInput.value = 60;
+  } else if (type === "isimSehir") {
+    timeLabel.style.display = "";
+    timeInput.value = 20;
   } else {
     timeLabel.style.display = "";
     timeInput.value = 10;

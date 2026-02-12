@@ -345,6 +345,9 @@ io.on("connection", (socket) => {
   socket.on("createRoom", (data) => {
     const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
 
+    const gameType = data.gameType || "telepati";
+    const gameMode = data.gameMode || "cift";
+
     let count = parseInt(data.coupleCount);
     if (gameMode === "duo") {
       if (!count || count < 1) count = 1;
@@ -357,9 +360,6 @@ io.on("connection", (socket) => {
 
     let time = parseInt(data.roundTime);
     if (!time || time < 5) time = 10;
-
-    const gameType = data.gameType || "telepati";
-    const gameMode = data.gameMode || "cift";
 
     const hostPlayer = {
       id: socket.id,

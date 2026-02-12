@@ -346,7 +346,11 @@ io.on("connection", (socket) => {
     const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
 
     let count = parseInt(data.coupleCount);
-    if (!count || count < 2) count = 2;
+    if (gameMode === "duo") {
+      if (!count || count < 1) count = 1;
+    } else {
+      if (!count || count < 2) count = 2;
+    }
 
     let rounds = parseInt(data.roundCount);
     if (!rounds || rounds < 1) rounds = 5;

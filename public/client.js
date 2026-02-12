@@ -1,7 +1,7 @@
-// Tüm ortamlarda (web, mobil, localhost) sunucuya bağlan
-const SERVER_URL = window.location.hostname === 'www.duoduels.com' || window.location.hostname === 'duoduels.com'
+// Tüm ortamlarda sunucuya bağlan
+const SERVER_URL = window.location.hostname === 'duoduels.com' || window.location.hostname === 'www.duoduels.com'
   ? window.location.origin
-  : 'https://www.duoduels.com';
+  : 'https://duoduels.onrender.com';
 const socket = io(SERVER_URL);
 
 function escapeHtml(str) {

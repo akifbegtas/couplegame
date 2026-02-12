@@ -1,6 +1,6 @@
 // Capacitor/mobil ortamda uzak sunucuya bağlan, web'de mevcut sunucuyu kullan
 const SERVER_URL = window.location.hostname === 'localhost' || window.location.protocol === 'file:'
-  ? 'https://couplegame-production.up.railway.app'
+  ? 'https://duoduels.up.railway.app'
   : window.location.origin;
 const socket = io(SERVER_URL);
 
@@ -267,7 +267,7 @@ function copyRoomCode() {
 
 async function shareWhatsApp() {
   const code = document.getElementById("displayRoomCode").innerText;
-  const url = 'https://couplegame-production.up.railway.app';
+  const url = 'https://duoduels.up.railway.app';
   const message = `DuoDuels'a gel! 💖\n\nOda Kodu: ${code}\n\n${url}`;
 
   // Capacitor native share varsa onu kullan

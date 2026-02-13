@@ -662,6 +662,7 @@ io.on("connection", (socket) => {
         p1Word: w1,
         p2Word: w2,
         attempts: currentPair.currentTurnAttempts,
+        totalMistakes: currentPair.totalAttempts,
         match: isMatch,
       };
 
@@ -1225,6 +1226,7 @@ function startTurn(roomId) {
     p2: p.p2,
     currentRound: room.currentRound,
     totalRounds: room.roundCount,
+    totalMistakes: p.totalAttempts || 0,
   });
 }
 

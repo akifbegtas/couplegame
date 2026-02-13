@@ -454,7 +454,7 @@ socket.on("hostLeft", () => {
   currentRoom = null;
   amIPlaying = false;
   alert("Oda kurucusu ayrıldı, oda kapatıldı!");
-  showScreen("gameSelect");
+  showScreen("lobby");
 });
 
 socket.on("updateLobby", (data) => {
@@ -553,8 +553,9 @@ socket.on("turnStarted", (data) => {
   const curR = data.currentRound || 1;
   const totR = data.totalRounds || window._totalRounds || 5;
 
+  const mistakeText = data.totalMistakes !== undefined ? ` | Hata: ${data.totalMistakes} / 20` : "";
   document.getElementById("attempts-display").innerText =
-    `Tur: ${curR} / ${totR}`;
+    `Tur: ${curR} / ${totR}${mistakeText}`;
   document.getElementById("game-log").innerHTML = "";
   startTimer(window._roundTime);
 
@@ -677,6 +678,13 @@ socket.on("spectatorUpdate", (res) => {
   const div = document.createElement("div");
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
   div.innerHTML = `${escapeHtml(res.p1Word)} - ${escapeHtml(res.p2Word)} ${res.match ? "✅" : "❌"}`;
+
+  if (res.totalMistakes !== undefined && amIPlaying) {
+    const attEl = document.getElementById("attempts-display");
+    const turMatch = attEl.innerText.match(/Tur:\s*(.+?)(\s*\||$)/);
+    const turText = turMatch ? turMatch[1].trim() : "?";
+    attEl.innerText = `Tur: ${turText} | Hata: ${res.totalMistakes} / 20`;
+  }
 
   {
     document.getElementById("game-log").prepend(div);

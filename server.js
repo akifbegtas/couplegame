@@ -1072,6 +1072,36 @@ io.on("connection", (socket) => {
     for (const roomId of Object.keys(rooms)) {
       const room = rooms[roomId];
 
+      // Kurucu (host) kontrolü - kurucu çıktıysa odayı komple kapat
+      let isHost = false;
+      if (room.gameMode === "tek") {
+        isHost = room.players.some((p) => p.id === socket.id && p.isHost);
+      } else {
+        room.teams.forEach((t) => {
+          if (t.p1 && t.p1.id === socket.id && t.p1.isHost) isHost = true;
+          if (t.p2 && t.p2.id === socket.id && t.p2.isHost) isHost = true;
+        });
+      }
+
+      if (isHost) {
+        console.log(`Kurucu ayrıldı, oda kapatılıyor: ${roomId}`);
+        io.to(roomId).emit("hostLeft");
+        // Tüm timerları temizle
+        if (room.pictionaryTimer) clearTimeout(room.pictionaryTimer);
+        if (room.tabuTimer) clearTimeout(room.tabuTimer);
+        if (room.imposterTimer) clearTimeout(room.imposterTimer);
+        // Odadaki tüm socketleri odadan çıkar
+        const socketsInRoom = io.sockets.adapter.rooms.get(roomId);
+        if (socketsInRoom) {
+          for (const sid of socketsInRoom) {
+            const s = io.sockets.sockets.get(sid);
+            if (s) s.leave(roomId);
+          }
+        }
+        delete rooms[roomId];
+        continue;
+      }
+
       room.teams.forEach((t) => {
         if (t.p1 && t.p1.id === socket.id) t.p1 = null;
         if (t.p2 && t.p2.id === socket.id) t.p2 = null;

@@ -449,6 +449,14 @@ socket.on("joinedRoom", (id) => {
   document.getElementById("displayRoomCode").innerText = id;
 });
 
+socket.on("hostLeft", () => {
+  clearInterval(timerInterval);
+  currentRoom = null;
+  amIPlaying = false;
+  alert("Oda kurucusu ayrıldı, oda kapatıldı!");
+  showScreen("gameSelect");
+});
+
 socket.on("updateLobby", (data) => {
   const isHost = myPlayerId === data.hostId;
   const hostEl = document.getElementById("host-controls");

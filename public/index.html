@@ -33,7 +33,7 @@
     </div>
 
     <div id="scoreboard-panel" class="scoreboard-panel">
-      <h3>📊 SKORLAR</h3>
+      <h3 id="scoreboard-title">📊 SKORLAR</h3>
       <div id="scoreboard-list"></div>
       <div id="score-note-text" class="score-note">20 Hata = ELENİR! 💀</div>
     </div>
@@ -665,7 +665,8 @@
 
       <div id="game-screen" class="screen">
         <div id="turn-info-bar" class="turn-info">
-          Sıradaki Çift Yarışıyor...
+          <span id="turn-info-text">Sıradaki Çift Yarışıyor...</span>
+          <span id="turn-round-badge"></span>
         </div>
 
         <div class="game-split-container">
@@ -701,12 +702,9 @@
         </div>
 
         <div id="timer-countdown" class="timer-countdown"></div>
+        <div id="mistake-display" class="mistake-display"></div>
 
         <div class="game-footer">
-          <div
-            id="attempts-display"
-            style="font-size: 1.2rem; margin-bottom: 5px"
-          ></div>
           <div id="game-log" class="log-container"></div>
         </div>
       </div>

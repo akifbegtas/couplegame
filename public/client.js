@@ -453,6 +453,12 @@ socket.on("hostLeft", () => {
   clearInterval(timerInterval);
   currentRoom = null;
   amIPlaying = false;
+  // Scoreboard panelini kapat
+  document.getElementById("scoreboard-panel").style.display = "none";
+  // Açık kalan Swal popup'larını kapat
+  Swal.close();
+  // Match overlay'lerini temizle
+  document.querySelectorAll(".match-overlay").forEach((el) => el.remove());
   alert("Oda kurucusu ayrıldı, oda kapatıldı!");
   showScreen("lobby");
 });
@@ -536,6 +542,8 @@ socket.on("gameInit", (data) => {
   window._totalRounds = data.roundCount || 5;
 
   document.getElementById("scoreboard-panel").style.display = "block";
+  document.getElementById("scoreboard-title").innerText = "📊 HATA";
+  document.getElementById("score-note-text").innerText = "20 Hata = ELENİR! 💀";
   document.getElementById("attempts-display").innerText =
     `Tur: 1 / ${window._totalRounds}`;
 
@@ -553,9 +561,8 @@ socket.on("turnStarted", (data) => {
   const curR = data.currentRound || 1;
   const totR = data.totalRounds || window._totalRounds || 5;
 
-  const mistakeText = data.totalMistakes !== undefined ? ` | Hata: ${data.totalMistakes} / 20` : "";
   document.getElementById("attempts-display").innerText =
-    `Tur: ${curR} / ${totR}${mistakeText}`;
+    `Tur: ${curR} / ${totR}`;
   document.getElementById("game-log").innerHTML = "";
   startTimer(window._roundTime);
 
@@ -679,12 +686,6 @@ socket.on("spectatorUpdate", (res) => {
   div.className = res.match ? "log-item log-success" : "log-item log-fail";
   div.innerHTML = `${escapeHtml(res.p1Word)} - ${escapeHtml(res.p2Word)} ${res.match ? "✅" : "❌"}`;
 
-  if (res.totalMistakes !== undefined && amIPlaying) {
-    const attEl = document.getElementById("attempts-display");
-    const turMatch = attEl.innerText.match(/Tur:\s*(.+?)(\s*\||$)/);
-    const turText = turMatch ? turMatch[1].trim() : "?";
-    attEl.innerText = `Tur: ${turText} | Hata: ${res.totalMistakes} / 20`;
-  }
 
   {
     document.getElementById("game-log").prepend(div);
@@ -833,6 +834,7 @@ socket.on("isimSehirStart", (data) => {
   window._totalRounds = data.roundCount || 5;
 
   document.getElementById("scoreboard-panel").style.display = "block";
+  document.getElementById("scoreboard-title").innerText = "📊 SKORLAR";
   document.getElementById("score-note-text").innerText =
     "En çok puan kazanır! 🏆";
   document.getElementById("is-round-display").innerText =
@@ -1311,6 +1313,7 @@ socket.on("pictionaryStart", (data) => {
   window._totalRounds = data.roundCount || 5;
 
   document.getElementById("scoreboard-panel").style.display = "block";
+  document.getElementById("scoreboard-title").innerText = "📊 SKORLAR";
   document.getElementById("score-note-text").innerText =
     "İlk bilene en çok puan! 🏆";
   document.getElementById("pic-round-display").innerText =
@@ -1560,6 +1563,7 @@ socket.on("tabuStart", (data) => {
   window._totalRounds = data.roundCount || 5;
 
   document.getElementById("scoreboard-panel").style.display = "block";
+  document.getElementById("scoreboard-title").innerText = "📊 SKORLAR";
   document.getElementById("score-note-text").innerText =
     "En çok kelime bilen kazanır! 🏆";
   document.getElementById("tabu-round-display").innerText =
